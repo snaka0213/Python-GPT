@@ -23,9 +23,8 @@ class ClassificationTree(object):
         self._root = root
 
     def _grow_tree(self, data_set: list) -> Node:
-        # Assume: for each sample in `data_set`, data[1] is label
         def label_distribution(data_set): # -> label
-            return [data[1] for data in data_set]
+            return [data["label"] for data in data_set]
         
         if len(data_set) < MaxInLeaf:
             label = label_distribution(data_set)
@@ -37,9 +36,8 @@ class ClassificationTree(object):
         g = knng(data_set)
         normal = hyper(g, data_set)
         left, right = [], []
-        # Assume: for each sample in `data_set`, data[0] is rep. vector
         for data in data_set:
-            if self._two_valued_classifier(data[0], normal):
+            if self._two_valued_classifier(data["feature"], normal):
                 left.append(sample)
             else:
                 right.append(sample)
@@ -58,6 +56,6 @@ class ClassificationTree(object):
         else:
             return pointer._label
 
-    def _two_valued_classifier(self, data: np.ndarray, normal) -> bool:
-        return np.dot(normal, data) > 0
+    def _two_valued_classifier(self, sample: np.ndarray, normal) -> bool:
+        return np.dot(normal, sample) > 0
                 
