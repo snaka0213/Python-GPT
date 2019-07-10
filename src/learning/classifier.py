@@ -25,7 +25,7 @@ class ClassificationTree(object):
     def _grow_tree(self, data_set: list) -> Node:
         def empirical_label_distribution(data_set): # -> label
             n = len(data_set) if data_set else 1
-            return sum([data["label"] for data in data_set)/n
+            return np.sum(np.array([data["label"] for data in data_set]))/n
 
         if len(data_set) < MaxInLeaf:
             label = empirical_label_distribution(data_set)
