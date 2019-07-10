@@ -23,11 +23,12 @@ class ClassificationTree(object):
         self._root = root
 
     def _grow_tree(self, data_set: list) -> Node:
-        def label_distribution(data_set): # -> label
-            return [data["label"] for data in data_set]
-        
+        def empirical_label_distribution(data_set): # -> label
+            n = len(data_set) if data_set else 1
+            return sum([data["label"] for data in data_set)/n
+
         if len(data_set) < MaxInLeaf:
-            label = label_distribution(data_set)
+            label = empirical_label_distribution(data_set)
             return Node(label=label)
         else:
             return Node(*self._sprit_node(data_set))
