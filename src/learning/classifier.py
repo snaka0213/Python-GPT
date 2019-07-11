@@ -18,14 +18,24 @@ class Node(object):
 
     
 class ClassificationTree(object):
-    def __init__(self, data_set: list):
+    def __init__(self, root: Node = Node()):
+        self._root = root
+    
+    '''
+    Assume: data_set is a list whose each element has attributes:
+    * "feature": feature vector, 1xM np.ndarray object
+    *  "label" : is multi-label, 1xL np.ndarray object
+    '''
+    
+    def load(self, data_set: list):
         root = self._grow_tree(data_set)
         self._root = root
 
+    
     def _grow_tree(self, data_set: list) -> Node:
-        def empirical_label_distribution(data_set): # -> label
+        def empirical_label_distribution(data_set): # -> `label`
             n = len(data_set) if data_set else 1
-            return np.sum(np.array([data["label"] for data in data_set]))/n
+            return (1/n)*np.sum(np.array([data["label"] for data in data_set]), axis=0)
 
         if len(data_set) < MaxInLeaf:
             label = empirical_label_distribution(data_set)
@@ -45,7 +55,7 @@ class ClassificationTree(object):
 
         return (left, right, normal)
 
-    def classify(self, sample: np.ndarray): # -> label
+    def classify(self, sample: np.ndarray): # -> `label`
         pointer = self._root
         while not pointer.isleaf():
             normal = pointer._normal
