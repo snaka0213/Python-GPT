@@ -30,18 +30,17 @@ class ClassificationTree(object):
     def load(self, data_set: list):
         root = self._grow_tree(data_set)
         self._root = root
-
     
     def _grow_tree(self, data_set: list) -> Node:
-        def empirical_label_distribution(data_set): # -> `label`
-            n = len(data_set) if data_set else 1
-            return (1/n)*np.sum(np.array([data["label"] for data in data_set]), axis=0)
-
         if len(data_set) < MaxInLeaf:
-            label = empirical_label_distribution(data_set)
+            label = self._empirical_label_distribution(data_set)
             return Node(label=label)
         else:
             return Node(*self._sprit_node(data_set))
+
+    def _empirical_label_distribution(self, data_set): # -> `label`
+            n = len(data_set) if data_set else 1
+            return (1/n)*np.sum(np.array([data["label"] for data in data_set]), axis=0)
 
     def _split_node(self, data_set: list) -> tuple:
         g = knng(data_set)
@@ -53,7 +52,8 @@ class ClassificationTree(object):
             else:
                 right.append(sample)
 
-        return (left, right, normal)
+        left_tree, right_tree = self._grow_tree(left), self._grow_tree(right)
+        return (left_tree, right_tree, normal)
 
     def classify(self, sample: np.ndarray): # -> `label`
         pointer = self._root
