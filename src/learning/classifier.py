@@ -1,10 +1,11 @@
 #!/user/bin/env python3
 import settings
 import numpy as np
-from .knng import ApproximateKNNG as knng
-from .hyper import LearnHyperPlane as hyperplane
+from .knng import KNNG
+from .lhp import LearnHyperPlane
 
 MaxInLeaf = settings.MaxInLeaf
+k = settings.KNNGNumber
 
 class Node(object):
     def __init__(self, left=None, right=None, normal=None, label=None):
@@ -43,8 +44,11 @@ class ClassificationTree(object):
             return (1/n)*np.sum(np.array([data["label"] for data in data_set]), axis=0)
 
     def _split_node(self, data_set: list) -> tuple:
-        knn_graph = knng.graph(data_set)
-        normal = hyperplane(knn_graph, data_set)
+        labels = [data["label"] for data in data_set]
+        knng = KNNG(k, labels, True)
+        lhp = LearnHyperPlane(knng.graph, data_set)
+        lhp.learn()
+        normal = lhp.normal
         
         left, right = [], []
         for data in data_set:
