@@ -2,67 +2,77 @@
 import settings
 import numpy as np
 from ..graph.graph import OrientedGraph
+from graph import OrientedGraph
 
 L = settings.LabelSpaceDimension
-ThresholdParameter = settings.ThresholdParameter
+TH = settings.ThresholdParameter
 
 class KNN(object):
-    def __init__(self):
-        self._labels = []
-
-    def load(self, labels: list):
+    def __init__(self, labels: list, approximate=False):
         self._labels = labels
+        self._approximate = approximate
 
-    ''' order L*N*logN
-    def knn_index(self, k: int, label: np.ndarray) -> list:
-        _labels = self._labels
-        _list = [
+    # if approximate, order < L*TH
+    def knn_index(self, k: int, query: np.ndarray) -> list:
+        labels = self._labels
+        inverted_index = self._inverted_index(query)
+        tmp_list = sorted([
             {
                 "index": i,
-                "value": self._label_product(label, _labels[i])
-            } for i in range(len(_labels))
-        ].sorted(key=lambda e:e["value"])
-        return map(lambda e:e["index"], _list[:k])
-    '''
+                "value": -self._num_of_intersection(query, labels[i])/self._label_norm(labels[i])
+            } for i in inverted_index
+        ], key=lambda e:e["value"])
+        return map(lambda e:e["index"], tmp_list[:k])
 
-    def knn_index(self, k: int, label: np.ndarray) -> list:
-        _labels = self._labels
-        for j in range(L):
-            for _data in self._inverted_index_data_set(j):
-                # TODO: make here
-                pass
+    def _inverted_index(self, query: np.ndarray) -> list:
+        labels = self._labels
+        approximate = self._approximate
+        
+        query_labels = [l for l in range(L) if self._hasattr(query, l) and not(approximate and len(self._fiber(l)) >= TH)]
+        return self._fiber(*query_labels)
+
+    def _fiber(self, *args) -> list:
+        labels = self._labels
+        return [i for i in range(len(labels)) if self._hasattr(labels[i], *args)]
+
+    def _num_of_intersection(self, v: np.ndarray, w: np.ndarray) -> int:
+        num = 0
+        for i in range(L):
+            if self._hasattr(v, i) and self._hasattr(w, i):
+                num += 1
+
+        return num
+
+    def _hasattr(self, label, *args) -> bool:
+        for index in args:
+            if label[index] > 0:
+                return True
+        else:
+            return False
                 
-
-    def _inverted_index_data_set(self, j: int) -> list:
-        def _hasattr(label, index):
-            return label[index] > 0
-
-        _labels = self._labels
-        return [_label for _label in _labels if _hasattr(_label, j)]
-
-    def _label_product(self, v: np.ndarray, w: np.ndarray):
-        return np.dot(v, w)/(np.sum(v+w,axis=0))
+    def _label_norm(self, label: np.ndarray):
+        return np.sum(label)
 
         
 class KNNG(object):
-    def __init__(self):
-        pass
-    
-    def graph(self, k: int, data_set: list) -> OrientedGraph:
-        graph = OrientedGraph(len(data_set))
-        
-        _knn = KNN()
-        for i in range(len(data_set)):
-            _knn.load(data_set[:i]+data_set[i+1:]) if i != 0 else _knn.load(data_set[1:])
-            _knn_index = _knn.knn_index(k, data_set[i])
-            for j in _knn_index:
-                if j < i:
-                    graph.add_edge(i, j)
-                else:
-                    graph.add_edge(i, j+1)
+    def __init__(self, k: int, labels: list, approximate=False):
+        self._labels = labels
+        self._approximate = approximate
 
-        return graph
-            
-class ApproximateKNNG(object):
-    def __init__(self):
-        pass
+    def graph(self) -> OrientedGraph:
+        labels = self._labels
+        approximate = self._approximate
+        
+        oriented_graph = OrientedGraph(len(labels))
+        for i in range(len(labels)):
+            knn = KNN(labels[:i]+labels[i+1:], approximate) if i != 0 else KNN(labels[1:], approximate)
+            knn_index = knn.knn_index(k, labels[i])
+            for j in knn_index:
+                if j < i:
+                    oriented_graph.add_edge(i, j)
+                else:
+                    oriented_graph.add_edge(i, j+1)
+
+        return oriented_graph
+
+
