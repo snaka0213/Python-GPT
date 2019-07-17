@@ -1,11 +1,10 @@
 #!/user/bin/env python3
+import numpy as np
 import random
 import settings
-import numpy as np
 
-M = settings.FeatureSpaceDimension
 S = settings.RandomSampleNumber
-N = settings.EpochNumber
+EpochNumber = settings.EpochNumber
 Lambda = settings.Lambda
 
 # if sample in the same posision as normal: +1; else: -1
@@ -17,9 +16,10 @@ def sigma(z):
     return 1/(1+np.exp(-z))
 
 # L_p norm
-def norm(x, p):
+def norm(x: np.ndarray, p: int):
     return (x**p).sum()**(1/p)
 
+# TODO: lambda regularization -> normalization of normal vector
 # objective function
 def objective_function(graph, data_set, samples_index, normal):
     value = 0
@@ -34,7 +34,7 @@ def objective_function(graph, data_set, samples_index, normal):
 
         for j in samples_index:
             z = -c*np.dot(data_set[j]["feature"], normal)
-            if -z > 600:
+            if -z > 700:
                 value += z
             else:
                 value += np.log(sigma(z))
@@ -42,14 +42,15 @@ def objective_function(graph, data_set, samples_index, normal):
         value += -Lambda*norm(normal, 1)
 
     return value
-    
+
 class LearnHyperPlane(object):
-    def __init__(self, graph, data_set):
+    def __init__(self, M: int, graph, data_set):
         self._graph = graph # OrientedGraph object
         self._data_set = data_set # list onject
-        self.normal = np.random.normal(0, 0.4, M)
+        self.normal = np.random.normal(0, 0.4, M) # normal vector of hyperplane
 
     def learn(self):
-        for step in range(N):
+        # TODO: make here
+        pass
             
             

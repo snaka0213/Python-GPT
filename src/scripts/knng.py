@@ -1,14 +1,13 @@
 #!/user/bin/env python3
 import settings
 import numpy as np
-from ..graph.graph import OrientedGraph
-from graph import OrientedGraph
+from .graph import OrientedGraph
 
-L = settings.LabelSpaceDimension
 TH = settings.ThresholdParameter
 
 class KNN(object):
-    def __init__(self, labels: list, approximate=False):
+    def __init__(self, L: int, labels: list, approximate=False):
+        self.L = L
         self._labels = labels
         self._approximate = approximate
 
@@ -19,12 +18,13 @@ class KNN(object):
         tmp_list = sorted([
             {
                 "index": i,
-                "value": -self._num_of_intersection(query, labels[i])/self._label_norm(labels[i])
+                "value": self._num_of_intersection(query, labels[i])/self._label_norm(labels[i])
             } for i in inverted_index
-        ], key=lambda e:e["value"])
+        ], key=lambda e:e["value"], reverse=True)
         return map(lambda e:e["index"], tmp_list[:k])
 
     def _inverted_index(self, query: np.ndarray) -> list:
+        L = self.L
         labels = self._labels
         approximate = self._approximate
         
@@ -37,6 +37,7 @@ class KNN(object):
 
     def _num_of_intersection(self, v: np.ndarray, w: np.ndarray) -> int:
         num = 0
+        L = self.L
         for i in range(L):
             if self._hasattr(v, i) and self._hasattr(w, i):
                 num += 1
@@ -55,17 +56,21 @@ class KNN(object):
 
         
 class KNNG(object):
-    def __init__(self, k: int, labels: list, approximate=False):
+    def __init__(self, k: int, L: int, labels: list, approximate=False):
+        self.k = k
+        self.L = L
         self._labels = labels
         self._approximate = approximate
 
     def graph(self) -> OrientedGraph:
+        k = self.k
+        L = self.L
         labels = self._labels
         approximate = self._approximate
         
         oriented_graph = OrientedGraph(len(labels))
         for i in range(len(labels)):
-            knn = KNN(labels[:i]+labels[i+1:], approximate) if i != 0 else KNN(labels[1:], approximate)
+            knn = KNN(L, labels[:i]+labels[i+1:], approximate) if i != 0 else KNN(L, labels[1:], approximate)
             knn_index = knn.knn_index(k, labels[i])
             for j in knn_index:
                 if j < i:
