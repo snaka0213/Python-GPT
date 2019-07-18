@@ -5,26 +5,23 @@ DEBUG = True
 
 ### Data Set ###
 # train file
-TrainFileName = "data/TestData/train.txt"
+TrainFileName = "data/Wiki10-31K/wiki10_train.txt"
 
 # predict file
-PredictFileName = "data/TestData/test.txt"
+PredictFileName = "data/Wiki10-31K/wiki10_test.txt"
 
 # output file
 OutputFileName = "prediction.txt"
 
 ### Hyper Parameters ###
 # max number of leafs in `ClassificationTree`
-MaxInLeaf = 5
+MaxInLeaf = 10 # >= BatchSize
 
 # the number of `ClassificationTree`
 NumOfTrees = 50
 
 # the number of epochs in `LearnHyperPlane`
 Epoch = 10
-
-# the number of random samples in `LearnHyperPlane`
-RandomSampleNumber = 10
 
 # the regularization parameter in `LearnHyperPlane`
 Lambda = 4
@@ -33,7 +30,10 @@ Lambda = 4
 Epsilon = 1e-8
 
 # the initial learning rate in `AdaGrad`
-InitialLearningRate = 0.001
+InitialLearningRate = 0.1
+
+# the batch size in `AdaGrad`
+BatchSize = 10 # <= MaxInLeaf
 
 # threshold parameter in Approximate version of `KNNG`
 ThresholdParameter = 50

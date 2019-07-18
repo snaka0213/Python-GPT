@@ -3,7 +3,7 @@ import numpy as np
 import random
 import settings
 
-S = settings.RandomSampleNumber
+batch_size = settings.BatchSize
 Epoch = settings.Epoch
 Lambda = settings.Lambda
 epsilon = settings.Epsilon
@@ -34,7 +34,7 @@ def E(graph, feature_vector_list, samples_index, normal) -> np.float64:
         c = two_valued_classifier(feature_vector_list[i], normal)
         for j in graph.edges[i]:
             z = c*np.dot(feature_vector_list[j], normal)
-            if -z > 600:
+            if -z > 700:
                 value += z
             else:
                 value += np.log(sigma(z))
@@ -55,21 +55,29 @@ def gradient(graph, feature_vector_list, samples_index, normal) -> np.ndarray:
     return (1/epsilon)*np.array([E(graph, feature_vector_list, samples_index, normal+epsilon*standard_basis(M, i)) - E(graph, feature_vector_list, samples_index, normal) for i in range(M)])
 
 class LearnHyperPlane(object):
-    def __init__(self, M: int, graph, feature_vector_list):
+    def __init__(self, M: int, graph, feature_vector_list, init_normal):
         self._graph = graph # OrientedGraph object (KNNG)
         self._feature_vector_list = feature_vector_list # feature vector (: np.ndarray) list
-        self.normal = np.random.normal(0, 0.4, M) # normal vector of hyperplane
+        self.normal = init_normal # normal vector of hyperplane
 
+    # TODO: try to use Adam: https://arxiv.org/pdf/1412.6980.pdf
     # AdaGrad: http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     def learn(self):
         h, eta = epsilon, initial_eta # parameters in AdaGrad
         graph, feature_vector_list = self._graph, self._feature_vector_list
         N = len(feature_vector_list) # the size of data_set
 
-        for step in range(Epoch):
+        for epoch in range(Epoch):
             # an epoch
-            samples_index = random.sample(range(N), S)
-            grad = gradient(graph, feature_vector_list, samples_index, self.normal)
-            h += norm(grad, 2)**2
-            eta = initial_eta/np.sqrt(h)
-            self.normal += eta*grad
+            index_list = list(range(N))
+            for step in range(N//batch_size):
+                samples_index = random.sample(index_list, batch_size)
+                for i in samples_index:
+                    index_list.remove(i)
+                
+                grad = gradient(graph, feature_vector_list, samples_index, self.normal)
+                h += norm(grad, 2)**2
+                eta = initial_eta/np.sqrt(h)
+                self.normal += eta*grad
+                print("Epoch: {}, Step: {}".format(epoch, step))
+                print(E(graph, feature_vector_list, samples_index, self.normal))
