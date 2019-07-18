@@ -17,23 +17,23 @@ class Node(object):
     def isleaf(self) -> bool:
         return self.left is None and self.right is None
 
-    
+
 class ClassificationTree(object):
     def __init__(self, L: int, M: int, root: Node = Node()):
         self.L = L
         self.M = M
         self._root = root
-    
+
     '''
     Assume: data_set is a list whose each element has attributes:
     * "feature": feature vector, 1xM np.ndarray object
-    *  "label" : is multi-label, 1xL np.ndarray object
+    *  "label" : label vector, 1xL np.ndarray object
     '''
-    
+
     def load(self, data_set: list):
         root = self._grow_tree(data_set)
         self._root = root
-    
+
     def _grow_tree(self, data_set: list) -> Node:
         if len(data_set) < MaxInLeaf:
             label = self._empirical_label_distribution(data_set)
@@ -41,19 +41,22 @@ class ClassificationTree(object):
         else:
             return Node(*self._split_node(data_set))
 
-    def _empirical_label_distribution(self, data_set): # -> `label`
-            n = len(data_set) if data_set else 1
-            return (1/n)*np.sum(np.array([data["label"] for data in data_set]), axis=0)
+    def _empirical_label_distribution(self, data_set): # -> label vector, 1xL np.ndarray object
+        if data_set:
+            return (1/len(data_set))*np.sum(np.array([data["label"] for data in data_set]), axis=0)
+        else:
+            return np.zeros(self.L, dtype=int)
 
     def _split_node(self, data_set: list) -> tuple:
         L, M = self.L, self.M
-        labels = [data["label"] for data in data_set]
-        knng = KNNG(k, L, labels, True)
-        lhp = LearnHyperPlane(M, knng.graph, data_set)
+        feature_vector_list = [data["feature"] for data in data_set]
+        label_vector_list = [data["label"] for data in data_set]
+        knng = KNNG(k, L, label_vector_list, approximate=True)
+        lhp = LearnHyperPlane(M, knng.graph(), feature_vector_list)
 
         ### Learning Part ###
         lhp.learn()
-        
+
         normal = lhp.normal
         left, right = [], []
         for data in data_set:
@@ -65,7 +68,7 @@ class ClassificationTree(object):
         left_tree, right_tree = self._grow_tree(left), self._grow_tree(right)
         return (left_tree, right_tree, normal)
 
-    def classify(self, sample: np.ndarray): # -> `label`
+    def classify(self, sample: np.ndarray): # -> label vector, 1xL np.ndarray object
         pointer = self._root
         while not pointer.isleaf():
             normal = pointer.normal
@@ -79,4 +82,3 @@ class ClassificationTree(object):
 
     def _two_valued_classifier(self, sample: np.ndarray, normal) -> bool:
         return np.dot(normal, sample) > 0
-                

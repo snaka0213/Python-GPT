@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import settings
 from scripts.train import Train
 from scripts.predict import Predict
@@ -9,26 +10,26 @@ def main():
     # train
     train = Train()
     train.load(settings.TrainFileName, settings.DEBUG)
-    trees = train.make_tree(settings.DEBUG)
+    trees = train.make_tree(settings.NumOfTrees, settings.DEBUG)
 
-    # split `test_data_set` to `sample_list` and `labels_list`
+    # split `test_data_set` to `sample_list` and `label_vector_list`
     reader = FileReader(settings.PredictFileName)
-    test_data_set = reader.read()
-    N_test = reader.N
+    test_data_set, N_test = reader.read(), reader.N
 
     sample_list = [data["feature"] for data in test_data_set]
-    labels_list = [data["label"] for data in test_data_set]
+    label_vector_list = [data["label"] for data in test_data_set]
 
     # predict
     predict = Predict()
     predict.load(*trees)
     predict.predict(sample_list)
-    predict.write(settings.OutputFileName)
+    predict.write(settings.KOfPrecision, settings.OutputFileName)
 
     # validate
     valid = Validate(settings.KOfPrecision, N_test)
     valid.read(settings.OutputFileName)
-    valid.diff(labels_list)
+    valid.diff(label_vector_list)
 
 if __name__ == "__main__":
+    sys.setrecursionlimit(4100000)
     main()

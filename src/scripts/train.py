@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
-import settings
 from .classifier import ClassificationTree
 from .file_reader import FileReader
-
-T = settings.NumOfTrees
 
 class Train(object):
     def __init__(self):
@@ -18,7 +15,7 @@ class Train(object):
         if debug:
             print("Train Data has been loaded.")
 
-    def make_tree(self, debug=False): # -> tuple of `ClassificationTree`
+    def make_tree(self, T: int, debug=False): # -> T-tuple of Trees
         L, M = self.L, self.M
         tree_list = [ClassificationTree(L, M) for i in range(T)]
         for i in range(T):
