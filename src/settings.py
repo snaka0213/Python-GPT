@@ -26,20 +26,30 @@ Epoch = 10
 # the regularization parameter in `LearnHyperPlane`
 Lambda = 4
 
-# the epsilon in `AdaGrad`
-Epsilon = 1e-8
-
-# the initial learning rate in `AdaGrad`
-InitialLearningRate = 0.1
-
-# the batch size in `AdaGrad`
-BatchSize = 10 # <= MaxInLeaf
-
 # threshold parameter in Approximate version of `KNNG`
 ThresholdParameter = 50
 
 # k in `KNNG`
 KNNGNumber = 10
 
+# the epsilon in derivative
+Epsilon = 1e-8
+
+### AdaGrad ###
+# the initial learning rate in `AdaGrad`
+InitialLearningRate = 0.1
+
+# the batch size in `AdaGrad`
+BatchSizeInAdaGrad = 10 # <= MaxInLeaf
+
+### Adam ###
+# some parameters
+beta_1 = 0.9
+beta_2 = 0.999
+
+# the batch size in `Adam`
+BatchSizeInAdam = 100
+
+### Validation ###
 # k in `precision@k`
 KOfPrecision = 3

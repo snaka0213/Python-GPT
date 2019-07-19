@@ -39,7 +39,7 @@ class ClassificationTree(object):
         self._root = root
 
     def _grow_tree(self, data_set: list, _normal) -> Node:
-        if len(data_set) < MaxInLeaf:
+        if len(data_set) <= MaxInLeaf:
             label = self._empirical_label_distribution(data_set)
             return Node(label=label)
         else:
@@ -55,8 +55,9 @@ class ClassificationTree(object):
         L, M = self.L, self.M
         feature_vector_list = [data["feature"] for data in data_set]
         label_vector_list = [data["label"] for data in data_set]
-        knng = KNNG(k, L, label_vector_list, approximate=True)
-        lhp = LearnHyperPlane(M, knng.graph(), feature_vector_list, _normal)
+        knng = KNNG(k, L, label_vector_list)
+        graph = knng.get_graph(approximate=True)
+        lhp = LearnHyperPlane(M, graph, feature_vector_list, _normal)
 
         ### Learning Part ###
         lhp.learn()

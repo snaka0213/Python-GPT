@@ -1,81 +1,109 @@
 #!/user/bin/env python3
-import settings
+import heapq
 import numpy as np
+import settings
 from .graph import OrientedGraph
 
 TH = settings.ThresholdParameter
 
-class KNN(object):
+'''
+__Terminology__
+* label: int object in range(L)
+* labels: list object, element is label
+* label_vector: np.ndarray object, size is L
+
+* inverted_index: Let N := len(data_set)
+and consider the map f: range(N) -> {0,1}^L and the map Label: {0,1}^L -> P(range(L)).
+For given query vector q in {0,1}^L, we define as follows:
+** inverted_index of q := f^{-1}(Label^{-1}(Label(q)))
+* We decomposite inverted_index with two factors:
+** query_labels of q := Label(q)
+** self._fiber(*args) := f^{-1}(Label^{-1}(*args))
+
+For given query_index i in range(N), we define
+** inverted_index of i := inverted_index of f(i) \ {i}
+'''
+
+# TODO: make this order N or L
+class InvertedIndex(object):
     def __init__(self, L: int, label_vector_list: list, approximate=False):
         self.L = L
+        self.N = len(label_vector_list)
         self._label_vector_list = label_vector_list
         self._approximate = approximate
+        self._card_of_fiber_list = [len(self._fiber(l)) for l in range(L)] # order L*N
+        self._index = [self._inverted_index(i) for i in range(self.N)]
 
-    # if approximate, order < L*TH
-    def knn_index(self, k: int, query: np.ndarray) -> list:
-        label_vector_list = self._label_vector_list
-        inverted_index = self._inverted_index(query)
-        tmp_list = sorted([
-            {
-                "index": i,
-                "value": self._num_of_intersection(query, label_vector_list[i])/self._label_norm(label_vector_list[i])
-            } for i in inverted_index
-        ], key=lambda e:e["value"], reverse=True)
-        return map(lambda e:e["index"], tmp_list[:k])
+    # returns inverted_index of i
+    def get(self, i: int) -> list:
+        return self._index[i]
 
-    def _inverted_index(self, query: np.ndarray) -> list:
+    def _inverted_index(self, query_index: int) -> list:
         L = self.L
-        label_vector_list = self._label_vector_list
         approximate = self._approximate
+        card_of_fiber_list = self._card_of_fiber_list
+        query = self._label_vector_list[query_index]
+        query_labels = [l for l in range(L) if self._hasattr(query, l) and not(approximate and card_of_fiber_list[l] >= TH)]
+        return self._fiber(*query_labels, remove=query_index)
 
-        query_label_vector_list = [l for l in range(L) if self._hasattr(query, l) and not(approximate and len(self._fiber(l)) >= TH)]
-        return self._fiber(*query_label_vector_list)
-
-    def _fiber(self, *args) -> list:
+    def _fiber(self, *args, remove=None) -> list:
+        N = self.N
         label_vector_list = self._label_vector_list
-        return [i for i in range(len(label_vector_list)) if self._hasattr(label_vector_list[i], *args)]
+        return [i for i in range(N) if self._hasattr(label_vector_list[i], *args) and not i == remove]
 
-    def _num_of_intersection(self, v: np.ndarray, w: np.ndarray) -> int:
-        num = 0
-        L = self.L
-        for i in range(L):
-            if self._hasattr(v, i) and self._hasattr(w, i):
-                num += 1
-
-        return num
-
-    def _hasattr(self, label, *args) -> bool:
+    def _hasattr(self, label_vector, *args) -> bool:
         for index in args:
-            if label[index] > 0:
+            if label_vector[index] > 0:
                 return True
         else:
             return False
 
-    def _label_norm(self, label: np.ndarray):
-        return np.sum(label)
+        
+class KNN(object):
+    def __init__(self, L: int, label_vector_list: list):
+        self.L = L
+        self.N = len(label_vector_list)
+        self._label_vector_list = label_vector_list
+
+    '''
+    Here we assume that k << N
+    * use `heapq` module, order N+k*logN
+    * it is faster than normal sort, order N*logN
+    '''
+    
+    def knn_index(self, k: int, query_index: int, inverted_index) -> list:
+        N = self.N
+        label_vector_list = self._label_vector_list
+        query = label_vector_list[query_index]
+        
+        def sort_key(i: int) -> np.float64:
+            return np.dot(query, label_vector_list[i])/self._label_norm(label_vector_list[i])
+        
+        knn_list = heapq.nlargest(k, inverted_index, key=sort_key)
+        return knn_list
+
+    def _label_norm(self, label_vector: np.ndarray):
+        return np.sum(label_vector)
 
 
 class KNNG(object):
-    def __init__(self, k: int, L: int, label_vector_list: list, approximate=False):
+    def __init__(self, k: int, L: int, label_vector_list: list):
         self.k = k
         self.L = L
+        self.N = len(label_vector_list)
         self._label_vector_list = label_vector_list
-        self._approximate = approximate
 
-    def graph(self) -> OrientedGraph:
-        k = self.k
-        L = self.L
+    def get_graph(self, approximate=False) -> OrientedGraph:
+        k, L, N = self.k, self.L, self.N
         label_vector_list = self._label_vector_list
-        approximate = self._approximate
 
-        oriented_graph = OrientedGraph(len(label_vector_list))
-        for i in range(len(label_vector_list)):
-            knn = KNN(L, label_vector_list[:i]+label_vector_list[i+1:], approximate) if i != 0 else KNN(L, label_vector_list[1:], approximate)
-            knn_index = knn.knn_index(k, label_vector_list[i])
+        print(1)
+        index = InvertedIndex(L, label_vector_list, approximate)
+        oriented_graph = OrientedGraph(N)
+        for i in range(N):
+            knn = KNN(L, label_vector_list)
+            knn_index = knn.knn_index(k, i, index.get(i))
             for j in knn_index:
-                if j < i:
-                    oriented_graph.add_edge(i, j)
-                else:
-                    oriented_graph.add_edge(i, j+1)
+                oriented_graph.add_edge(i, j)
 
         return oriented_graph

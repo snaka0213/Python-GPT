@@ -6,7 +6,7 @@ class FileReader(object):
         self._file = file_name
         self.L = None # label space dimension
         self.M = None # feature vector space dimension
-        self.N = None # the number of data
+        self.N = None # the size of data_set
 
     def read(self) -> list:
         data_set = []
