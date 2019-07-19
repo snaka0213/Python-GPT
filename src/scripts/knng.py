@@ -97,7 +97,6 @@ class KNNG(object):
         k, L, N = self.k, self.L, self.N
         label_vector_list = self._label_vector_list
 
-        print(1)
         index = InvertedIndex(L, label_vector_list, approximate)
         oriented_graph = OrientedGraph(N)
         for i in range(N):
