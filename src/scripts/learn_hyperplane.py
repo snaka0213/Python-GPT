@@ -28,21 +28,19 @@ def two_valued_classifier(sample: np.ndarray, normal: np.ndarray) -> int:
 
 # TODO: lambda regularization -> normalization of normal vector
 # objective function
-def E(graph, feature_vector_list, samples_index, normal) -> np.float64:
-    N = len(feature_vector_list)
-    
+def E(graph, feature_vector_dict: dict, samples_index: list, normal) -> np.float64:
     value = 0
-    for i in range(N):
-        c = two_valued_classifier(feature_vector_list[i], normal)
-        for j in graph.edges[i]:
-            z = c*np.dot(feature_vector_list[j], normal)
+    for node in graph.nodes:
+        c = two_valued_classifier(feature_vector_dict[node], normal)
+        for v in graph.edges[node]:
+            z = c*np.dot(feature_vector_dict[v], normal)
             if -z > 700:
                 value += z
             else:
                 value += np.log(sigma(z))
 
         for j in samples_index:
-            z = -c*np.dot(feature_vector_list[j], normal)
+            z = -c*np.dot(feature_vector_dict[v], normal)
             if -z > 700:
                 value += z
             else:
@@ -52,26 +50,26 @@ def E(graph, feature_vector_list, samples_index, normal) -> np.float64:
 
     return value
 
-def gradient(graph, feature_vector_list, samples_index, normal) -> np.ndarray:
+def gradient(graph, feature_vector_dict, samples_index, normal) -> np.ndarray:
     M = normal.size
     return (1/epsilon)*np.array([
         E(
             graph,
-            feature_vector_list,
+            feature_vector_dict,
             samples_index,
             normal+epsilon*standard_basis(M, i)
         ) - E(
             graph,
-            feature_vector_list,
+            feature_vector_dict,
             samples_index,
             normal
         ) for i in range(M)
     ])
 
 class LearnHyperPlane(object):
-    def __init__(self, M: int, graph, feature_vector_list, init_normal):
+    def __init__(self, M: int, graph, feature_vector_dict, init_normal):
         self._graph = graph # OrientedGraph object (KNNG)
-        self._feature_vector_list = feature_vector_list # feature vector (: np.ndarray) list
+        self._feature_vector_dict = feature_vector_dict # {index: feature vector (: np.ndarray)}
         self.normal = init_normal # normal vector of hyperplane
         self.M = M # dimension of feature vector space
 
@@ -101,22 +99,17 @@ class LearnHyperPlane(object):
     AdaGrad: http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     '''
 
-    def learn(self):
+    def learn(self, debug=False):
         h, eta = epsilon, initial_eta # parameters in AdaGrad
 
-        graph, feature_vector_list = self._graph, self._feature_vector_list
-        N = len(feature_vector_list) # the size of data_set
+        graph, feature_vector_dict = self._graph, self._feature_vector_dict
+        N = len(feature_vector_dict) # the size of data_set
 
         for epoch in range(Epoch):
             # an epoch
-            index_list = list(range(N))
-            for step in range(N//batch_size):
-                samples_index = random.sample(index_list, batch_size)
-                for i in samples_index:
-                    index_list.remove(i)
+            samples_index = random.sample(list(feature_vector_dict.keys()), batch_size)
                 
-                grad = (1/batch_size)*gradient(graph, feature_vector_list, samples_index, self.normal)
-                h += norm(grad, 2)**2
-                eta = initial_eta/np.sqrt(h)
-                self.normal += eta*grad
-    
+            grad = gradient(graph, feature_vector_dict, samples_index, self.normal)
+            h += norm(grad, 2)**2
+            eta = initial_eta/np.sqrt(h)
+            self.normal += eta*grad

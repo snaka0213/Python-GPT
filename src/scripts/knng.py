@@ -13,85 +13,74 @@ __Terminology__
 * label_vector: np.ndarray object, size is L
 
 * inverted_index: Let N := len(data_set)
-and consider the map f: range(N) -> {0,1}^L and the map Label: {0,1}^L -> P(range(L)).
-For given query vector q in {0,1}^L, we define as follows:
-** inverted_index of q := f^{-1}(Label^{-1}(Label(q)))
-* We decomposite inverted_index with two factors:
-** query_labels of q := Label(q)
-** self._fiber(*args) := f^{-1}(Label^{-1}(*args))
-
+and consider the map f: range(N) -> P(range(L)) which maps i to labels of data_set[i].
+For given label l in range(L), we define fiber[l] a subset of range(N) as
+** fiber[l] := [i for in range(N) if l in f(i)]
+For given query vector q in {0,1}^L=P(range(L)), we define as follows:
+** inverted_index[q] := sum_{l in L} X[l]
 For given query_index i in range(N), we define
-** inverted_index of i := inverted_index of f(i) \ {i}
+** inverted_index[i] := inverted_index[f(i)] \ {i}
 '''
 
-# TODO: make this order N or L
 class InvertedIndex(object):
-    def __init__(self, L: int, label_vector_list: list, approximate=False):
+    def __init__(self, L: int, data_set: dict, approximate=False):
         self.L = L
-        self.N = len(label_vector_list)
-        self._label_vector_list = label_vector_list
+        self.N = len(data_set)
+        self._data_set = data_set
         self._approximate = approximate
-
-        N = self.N
+        
         # order: L*N
-        self._card_of_fiber_list = [
-            np.sum(np.array(
-                [label_vector_list[i][l] for i in range(N)], dtype=int
-            )) for l in range(L)
-        ]
-        # order: (L+TH*L*N)*N
+        self._fiber_list = [self._fiber(l) for l in range(L)]
+        
+        # order: <= L*N, max length of elements: <= TH*L
+        N = self.N
         self._index = [self._inverted_index(i) for i in range(N)]
 
     # returns inverted_index of i
-    def get(self, i: int) -> list:
+    def get(self, i: int) -> set:
         return self._index[i]
 
-    # order: <= L+TH*L*N
-    def _inverted_index(self, query_index: int) -> list:
+    # order: len(args)*N
+    def _fiber(self, *args, remove=None) -> set:
+        N = self.N
+        data_set = self._data_set
+        
+        s = set()
+        for label in args:
+            s = s | {key for key in data_set if self._hasattr(data_set[key]["label"], label)}
+        if remove in s:
+            s.remove(remove)
+        return s
+
+    # order: <= L*N
+    def _inverted_index(self, query_index: int) -> set:
         L = self.L
         approximate = self._approximate
-        card_of_fiber_list = self._card_of_fiber_list
-        query = self._label_vector_list[query_index]
+        fiber_list = self._fiber_list
+        query = self._data_set[query_index]["label"]
         query_labels = [l for l in range(L) if self._hasattr(query, l) \
-                        and not(approximate and card_of_fiber_list[l] >= TH)]
+                        and not(approximate and len(fiber_list[l]) >= TH)]
         return self._fiber(*query_labels, remove=query_index)
 
-    # order: len(args)*N
-    def _fiber(self, *args, remove=None) -> list:
-        N = self.N
-        label_vector_list = self._label_vector_list
-        return [i for i in range(N) if self._hasattr(label_vector_list[i], *args) and i != remove]
+    # order: 1
+    def _hasattr(self, label_vector, label) -> bool:
+        return label_vector[label] > 0
 
-    # order: <= len(args)
-    def _hasattr(self, label_vector, *args) -> bool:
-        for index in args:
-            if label_vector[index] > 0:
-                return True
-        else:
-            return False
-
-        
-class KNN(object):
-    def __init__(self, L: int, label_vector_list: list):
-        self.L = L
-        self.N = len(label_vector_list)
-        self._label_vector_list = label_vector_list
-
-    '''
-    Here we assume that k << N
-    * use `heapq` module, order N+k*logN
-    * it is faster than normal sort, order N*logN
-    '''
     
-    def knn_index(self, k: int, query_index: int, inverted_index) -> list:
+class KNN(object):
+    def __init__(self, L: int, data_set: dict):
+        self.L = L
+        self.N = len(data_set)
+        self._data_set = data_set
+    
+    def knn_index(self, k: int, query: np.ndarray, index_list: list) -> list:
         N = self.N
-        label_vector_list = self._label_vector_list
-        query = label_vector_list[query_index]
+        data_set = self._data_set
         
         def sort_key(i: int) -> np.float64:
-            return np.dot(query, label_vector_list[i])/self._label_norm(label_vector_list[i])
+            return np.dot(query, data_set[i]["label"])/self._label_norm(data_set[i]["label"])
         
-        knn_list = heapq.nlargest(k, inverted_index, key=sort_key)
+        knn_list = heapq.nlargest(k, index_list, sort_key)
         return knn_list
 
     def _label_norm(self, label_vector: np.ndarray):
@@ -99,21 +88,24 @@ class KNN(object):
 
 
 class KNNG(object):
-    def __init__(self, k: int, L: int, label_vector_list: list):
+    def __init__(self, k: int, L: int, data_set: list, inverted_index: InvertedIndex):
         self.k = k
         self.L = L
-        self.N = len(label_vector_list)
-        self._label_vector_list = label_vector_list
+        self.N = len(data_set)
+        self._data_set = data_set
+        self._index = inverted_index
 
-    def get_graph(self, approximate=False) -> OrientedGraph:
+    def get_graph(self) -> OrientedGraph:
         k, L, N = self.k, self.L, self.N
-        label_vector_list = self._label_vector_list
+        data_set = self._data_set
+        index = self._index
 
-        index = InvertedIndex(L, label_vector_list, approximate)
-        oriented_graph = OrientedGraph(N)
-        for i in range(N):
-            knn = KNN(L, label_vector_list)
-            knn_index = knn.knn_index(k, i, index.get(i))
+        index_in_data_set = {key for key in data_set}
+        oriented_graph = OrientedGraph([key for key in data_set])
+        for i in data_set:
+            knn = KNN(L, data_set)
+            index_list = list(self._index.get(i)&index_in_data_set)
+            knn_index = knn.knn_index(k, data_set[i]["label"], index_list)
             for j in knn_index:
                 oriented_graph.add_edge(i, j)
 

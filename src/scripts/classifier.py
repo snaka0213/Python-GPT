@@ -1,7 +1,7 @@
 #!/user/bin/env python3
 import settings
 import numpy as np
-from .knng import KNNG
+from .knng import InvertedIndex, KNNG
 from .learn_hyperplane import LearnHyperPlane
 
 MaxInLeaf = settings.MaxInLeaf
@@ -22,53 +22,47 @@ class Node(object):
 
 
 class ClassificationTree(object):
-    def __init__(self, L: int, M: int, root: Node = Node()):
+    def __init__(self, L: int, M: int, inverted_index: InvertedIndex):
         self.L = L
         self.M = M
-        self._root = root
+        self._root = Node()
+        self._index = inverted_index
 
-    '''
-    Assume: data_set is a list whose each element has these attributes:
-    * "feature": feature vector, 1xM np.ndarray object
-    *  "label" : label vector, 1xL np.ndarray object
-    '''
+    def load(self, data_set: dict):
+        init_normal = np.random.normal(0, 0.4, self.M)
+        self._root = self._grow_tree(data_set, init_normal)
 
-    def load(self, data_set: list):
-        _normal = np.random.normal(0, 0.4, self.M)
-        root = self._grow_tree(data_set, _normal)
-        self._root = root
-
-    def _grow_tree(self, data_set: list, _normal) -> Node:
+    def _grow_tree(self, data_set: dict, init_normal) -> Node:
         if len(data_set) <= MaxInLeaf:
             label = self._empirical_label_distribution(data_set)
             return Node(label=label)
         else:
-            return Node(*self._split_node(data_set, _normal))
+            return Node(*self._split_node(data_set, init_normal))
 
     def _empirical_label_distribution(self, data_set): # -> label vector, 1xL np.ndarray object
         if data_set:
-            return (1/len(data_set))*np.sum(np.array([data["label"] for data in data_set]), axis=0)
+            return (1/len(data_set))*np.sum(np.array([data_set[key]["label"] for key in data_set]), axis=0)
         else:
             return np.zeros(self.L, dtype=int)
 
-    def _split_node(self, data_set: list, _normal) -> tuple:
+    def _split_node(self, data_set: dict, init_normal) -> tuple:
         L, M = self.L, self.M
-        feature_vector_list = [data["feature"] for data in data_set]
-        label_vector_list = [data["label"] for data in data_set]
-        knng = KNNG(k, L, label_vector_list)
-        graph = knng.get_graph(approximate=True)
-        lhp = LearnHyperPlane(M, graph, feature_vector_list, _normal)
+        feature_vector_dict = {key: data_set[key]["feature"] for key in data_set}
+        
+        knng = KNNG(k, L, data_set, self._index)
+        graph = knng.get_graph()
+        lhp = LearnHyperPlane(M, graph, feature_vector_dict, init_normal)
 
         ### Learning Part ###
-        lhp.learn()
+        lhp.learn(settings.DEBUG)
 
         normal = lhp.normal
-        left, right = [], []
-        for data in data_set:
-            if two_valued_classifier(data["feature"], normal):
-                left.append(data)
+        left, right = {}, {}
+        for key in data_set:
+            if two_valued_classifier(data_set[key]["feature"], normal):
+                left[key] = data_set[key]
             else:
-                right.append(data)
+                right[key] = data_set[key]
 
         left_tree = self._grow_tree(left, normal)
         right_tree = self._grow_tree(right, normal)

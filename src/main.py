@@ -16,8 +16,8 @@ def main():
     reader = FileReader(settings.PredictFileName)
     test_data_set, N_test = reader.read(), reader.N
 
-    sample_list = [data["feature"] for data in test_data_set]
-    label_vector_list = [data["label"] for data in test_data_set]
+    sample_list = [test_data_set[key]["feature"] for key in test_data_set]
+    label_vector_list = [test_data_set[key]["label"] for key in test_data_set]
 
     # predict
     predict = Predict()
