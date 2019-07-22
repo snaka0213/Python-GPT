@@ -31,26 +31,38 @@ class InvertedIndex(object):
         self.N = len(label_vector_list)
         self._label_vector_list = label_vector_list
         self._approximate = approximate
-        self._card_of_fiber_list = [len(self._fiber(l)) for l in range(L)] # order L*N
-        self._index = [self._inverted_index(i) for i in range(self.N)]
+
+        N = self.N
+        # order: L*N
+        self._card_of_fiber_list = [
+            np.sum(np.array(
+                [label_vector_list[i][l] for i in range(N)], dtype=int
+            )) for l in range(L)
+        ]
+        # order: (L+TH*L*N)*N
+        self._index = [self._inverted_index(i) for i in range(N)]
 
     # returns inverted_index of i
     def get(self, i: int) -> list:
         return self._index[i]
 
+    # order: <= L+TH*L*N
     def _inverted_index(self, query_index: int) -> list:
         L = self.L
         approximate = self._approximate
         card_of_fiber_list = self._card_of_fiber_list
         query = self._label_vector_list[query_index]
-        query_labels = [l for l in range(L) if self._hasattr(query, l) and not(approximate and card_of_fiber_list[l] >= TH)]
+        query_labels = [l for l in range(L) if self._hasattr(query, l) \
+                        and not(approximate and card_of_fiber_list[l] >= TH)]
         return self._fiber(*query_labels, remove=query_index)
 
+    # order: len(args)*N
     def _fiber(self, *args, remove=None) -> list:
         N = self.N
         label_vector_list = self._label_vector_list
-        return [i for i in range(N) if self._hasattr(label_vector_list[i], *args) and not i == remove]
+        return [i for i in range(N) if self._hasattr(label_vector_list[i], *args) and i != remove]
 
+    # order: <= len(args)
     def _hasattr(self, label_vector, *args) -> bool:
         for index in args:
             if label_vector[index] > 0:
