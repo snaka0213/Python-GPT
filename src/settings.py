@@ -5,10 +5,10 @@ DEBUG = True
 
 ### Data Set ###
 # train file
-TrainFileName = "data/Wiki10-31K/wiki10_train.txt"
+TrainFileName = "data/TestData/train.txt"
 
 # predict file
-PredictFileName = "data/Wiki10-31K/wiki10_test.txt"
+PredictFileName = "data/TestData/test.txt"
 
 # output file
 OutputFileName = "prediction.txt"
@@ -39,8 +39,12 @@ Epsilon = 1e-8
 # the initial learning rate in `AdaGrad`
 InitialLearningRate = 0.1
 
-# the batch size in `AdaGrad`
-BatchSizeInAdaGrad = 10 # <= MaxInLeaf
+# the sample size in `AdaGrad`
+SampleSize = 10 # <= MaxInLeaf
+
+### SGD ###
+# the batch size in `SGD`
+BatchSize = 100
 
 ### Adam ###
 # some parameters

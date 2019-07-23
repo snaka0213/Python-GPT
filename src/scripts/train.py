@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from .knng import InvertedIndex
-from .classifier import ClassificationTree
+#from .learning.classifier import ClassificationTree
 from .file_reader import FileReader
 
 class Train(object):

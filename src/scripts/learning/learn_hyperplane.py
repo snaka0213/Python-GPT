@@ -1,9 +1,13 @@
 #!/user/bin/env python3
 import numpy as np
+import copy
 import random
+
+from optimizer.sgd import SGD
 import settings
 
-batch_size = settings.BatchSizeInAdaGrad
+batch_size = settings.BatchSize
+sample_size = settings.SampleSize
 Epoch = settings.Epoch
 Lambda = settings.Lambda
 epsilon = settings.Epsilon
@@ -28,39 +32,39 @@ def two_valued_classifier(sample: np.ndarray, normal: np.ndarray) -> int:
 
 # TODO: lambda regularization -> normalization of normal vector
 # objective function
-def E(graph, feature_vector_dict: dict, samples_index: list, normal) -> np.float64:
+def E(graph, feature_index: int, feature_vector: np.ndarray, samples_index: list, normal) -> np.float64:
     value = 0
-    for node in graph.nodes:
-        c = two_valued_classifier(feature_vector_dict[node], normal)
-        for v in graph.edges[node]:
-            z = c*np.dot(feature_vector_dict[v], normal)
-            if -z > 700:
-                value += z
-            else:
-                value += np.log(sigma(z))
+    c = two_valued_classifier(feature_vector, normal)
+    for v in graph.edges[feature_index]:
+        z = c*np.dot(feature_vector, normal)
+        if -z > 700:
+            value += z
+        else:
+            value += np.log(sigma(z))
 
-        for j in samples_index:
-            z = -c*np.dot(feature_vector_dict[v], normal)
-            if -z > 700:
-                value += z
-            else:
-                value += np.log(sigma(z))
+    for j in samples_index:
+        z = -c*np.dot(feature_vector, normal)
+        if -z > 700:
+            value += z
+        else:
+            value += np.log(sigma(z))
 
-        value += -Lambda*norm(normal, 1)
-
+    value += -Lambda*norm(normal, 1)
     return value
 
-def gradient(graph, feature_vector_dict, samples_index, normal) -> np.ndarray:
+def gradient(graph, feature_index, feature_vector, samples_index, normal) -> np.ndarray:
     M = normal.size
     return (1/epsilon)*np.array([
         E(
             graph,
-            feature_vector_dict,
+            feature_index,
+            feature_vector,
             samples_index,
             normal+epsilon*standard_basis(M, i)
         ) - E(
             graph,
-            feature_vector_dict,
+            feature_index,
+            feature_vector,
             samples_index,
             normal
         ) for i in range(M)
@@ -75,7 +79,7 @@ class LearnHyperPlane(object):
 
 
     '''
-    # Adam: https://arxiv.org/pdf/1412.6980.pdf
+    
     def learn(self):
         moment_1, moment_2 = np.zeros(self.M), np.zeros(self.M) # momentum in Adam
         epsilon_hat = epsilon*np.sqrt(1-beta_2) # constant in Adam
@@ -96,20 +100,31 @@ class LearnHyperPlane(object):
     '''
 
     '''
-    AdaGrad: http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
+    
     '''
 
     def learn(self, debug=False):
         h, eta = epsilon, initial_eta # parameters in AdaGrad
 
         graph, feature_vector_dict = self._graph, self._feature_vector_dict
-        N = len(feature_vector_dict) # the size of data_set
+        feature_index_list = list(feature_vector_dict.keys())
+        n = len(feature_index_list)//batch_size
 
+        # SGD
         for epoch in range(Epoch):
             # an epoch
-            samples_index = random.sample(list(feature_vector_dict.keys()), batch_size)
-                
-            grad = gradient(graph, feature_vector_dict, samples_index, self.normal)
-            h += norm(grad, 2)**2
-            eta = initial_eta/np.sqrt(h)
-            self.normal += eta*grad
+            samples_index = random.sample(list(feature_vector_dict.keys()), sample_size)
+            copied_index_list = copy.copy(feature_index_list)
+            for step in range(n):
+                batch_index = random.sample(copied_index_list, batch_size)
+                for j in batch_index:
+                    copied_index_list.remove(j)
+            
+                grad = (1/batch_size)*np.sum(
+                    np.array([gradient(graph, i, feature_vector_dict[i], samples_index, self.normal)\
+                              for i in batch_index]),
+                    axis=0
+                )
+                h += norm(grad, 2)**2
+                eta = initial_eta/np.sqrt(h)
+                self.normal += eta*grad
