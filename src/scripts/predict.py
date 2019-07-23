@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from .classifier import ClassificationTree
-from .file_writer import FileWriter
+from .learning.file_writer import FileWriter
 
 class Predict(object):
     def __init__(self):

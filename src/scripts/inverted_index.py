@@ -1,14 +1,11 @@
 #!/user/bin/env python3
 import json
 import heapq
-import numpy as np
-
-import settings
-TH = settings.ThresholdParameter
+import nunpy as np
 
 '''
-Let L be an int object, called as `label space dimension`.
 __Terminology__
+* L: int object called `label space dimension`
 * label: int object in range(L)
 * labels: list object, consist of some labels
 * label_vector: np.ndarray object, size L
@@ -22,16 +19,20 @@ For given query vector q in {0,1}^L=P(range(L)), we define as follows:
 For given query_index i in range(N), we define
 ** inverted_index[i] := inverted_index[f(i)] \ {i}
 
+* TH := ThresholdParameter: int object which make
+** len(fiber[l]) < TH for each l in range(L)
+** If TH is False, then make inverted index by brute force.
+
 __Assume__
-* Given a dictionary `data_set` has structure such that {index: data}:
+* Given a dictionary `data_set` has data structure such as {index: data}:
 ** data["label"]: label_vector, np.ndarray object, size L
 '''
 
 class InvertedIndex(object):
-    def __init__(self, L: int, data_set: dict, approximate: bool = False):
+    def __init__(self, L: int, data_set: dict, TH=False):
         self.L = L
+        self.TH = TH
         self._data_set = data_set
-        self._approximate = approximate
         self.index_dict = None
     
         # order: L*N
@@ -58,11 +59,11 @@ class InvertedIndex(object):
     # order: <= L*N
     def _inverted_index(self, query_index: int) -> list:
         L = self.L
-        approximate = self._approximate
+        TH = self.TH
         fiber_list = self._fiber_list
         query = self._data_set[query_index]["label"]
         query_labels = [l for l in range(L) if self._hasattr(query, l) \
-                        and not(approximate and len(fiber_list[l]) >= TH)]
+                        and not(TH and len(fiber_list[l]) >= TH)]
         return self._fiber(*query_labels, remove=query_index)
 
     # order: 1
@@ -74,12 +75,16 @@ class InvertedIndex(object):
     # {index: inverted_index[index] (: list object)}
     def write(self, file_name: str):
         with open(file_name, 'w') as f:
-            json.dump(self.index_dict, f, ensure_ascii=False, indent=4, separators=(',', ': '))
+            json.dump(self.index_dict, f)
     
     ### File Reader ###
     # save inverted_index in self from a json file
+    # notice that keys in json are ALWAYS stringss
     def open(self, file_name: str):
         with open(file_name, 'r') as f:
-            self.index_dict = json.load(f)
+            encoded_dict = json.load(f)
+            self.index_dict = {int(key): encoded_dict[key] for key in encoded_dict.keys()}
+
+        
 
     

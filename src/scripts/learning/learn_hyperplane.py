@@ -1,17 +1,9 @@
 #!/user/bin/env python3
-import numpy as np
 import copy
 import random
+import numpy as np
 
 from optimizer.sgd import SGD
-import settings
-
-batch_size = settings.BatchSize
-sample_size = settings.SampleSize
-Epoch = settings.Epoch
-Lambda = settings.Lambda
-epsilon = settings.Epsilon
-initial_eta = settings.InitialLearningRate
 
 # sigmoid function
 def sigma(z):
@@ -72,36 +64,10 @@ def gradient(graph, feature_index, feature_vector, samples_index, normal) -> np.
 
 class LearnHyperPlane(object):
     def __init__(self, M: int, graph, feature_vector_dict, init_normal):
+        self.M = M # dimension of feature vector space
         self._graph = graph # OrientedGraph object (KNNG)
         self._feature_vector_dict = feature_vector_dict # {index: feature vector (: np.ndarray)}
         self.normal = init_normal # normal vector of hyperplane
-        self.M = M # dimension of feature vector space
-
-
-    '''
-    
-    def learn(self):
-        moment_1, moment_2 = np.zeros(self.M), np.zeros(self.M) # momentum in Adam
-        epsilon_hat = epsilon*np.sqrt(1-beta_2) # constant in Adam
-        
-        graph, feature_vector_list = self._graph, self._feature_vector_list
-        N = len(feature_vector_list) # the size of data_set
-        for epoch in range(Epoch):
-            # an epoch
-            index_list = list(range(N))
-            for step in range(N//batch_size):
-                samples_index = random.sample(index_list, batch_size)
-                for i in samples_index:
-                    index_list.remove(i)
-                
-                grad = (1/batch_size)*gradient(graph, feature_vector_list, samples_index, self.normal)
-                self.normal += eta*grad
-        
-    '''
-
-    '''
-    
-    '''
 
     def learn(self, debug=False):
         h, eta = epsilon, initial_eta # parameters in AdaGrad

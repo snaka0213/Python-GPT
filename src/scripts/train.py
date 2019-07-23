@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-#from .learning.classifier import ClassificationTree
+from .learning.classifier import ClassificationTree
 from .file_reader import FileReader
 
 class Train(object):
@@ -15,11 +15,8 @@ class Train(object):
         if debug:
             print("Train Data has been loaded.")
 
-    def make_tree(self, T: int, debug=False): # -> T-tuple of Trees
+    def make_tree(self, T: int, inverted_index: dict, debug=False): # -> T-tuple of Trees
         data_set, L, M = self._data_set, self.L, self.M
-        inverted_index = InvertedIndex(L, data_set, approximate=True)
-        if debug:
-            print("InvertedIndex has been made.")
         tree_list = [ClassificationTree(L, M, inverted_index) for i in range(T)]
         for i in range(T):
             tree_list[i].load(data_set)
