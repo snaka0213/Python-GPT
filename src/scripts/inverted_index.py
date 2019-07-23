@@ -79,7 +79,7 @@ class InvertedIndex(object):
     
     ### File Reader ###
     # save inverted_index in self from a json file
-    # notice that keys in json are ALWAYS stringss
+    # Notice: keys in json are ALWAYS strings
     def open(self, file_name: str):
         with open(file_name, 'r') as f:
             encoded_dict = json.load(f)
