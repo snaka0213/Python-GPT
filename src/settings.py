@@ -1,59 +1,49 @@
 #!/usr/bin/env python3
 
-# print debug
+### Debug ###
 DEBUG = True
 
-### Data Set ###
-# train file
-TrainFileName = "data/TestData/train.txt"
-
-# predict file
-PredictFileName = "data/TestData/test.txt"
-
-# output file
+### File ###
+DataFilePath = "data/Wiki10-31K/"
+TrainFileName = DataFilePath + "train.txt"
+InvertedIndexFileName = DataFilePath + "index.json"
+PredictFileName = DataFilePath + "test.txt"
 OutputFileName = "prediction.txt"
 
-### Hyper Parameters ###
+### validation ###
+# k of `precision@k`
+KOfPrecision = 3
+
+### classifier ###
 # max number of leafs in `ClassificationTree`
 MaxInLeaf = 10 # >= BatchSize
 
 # the number of `ClassificationTree`
 NumOfTrees = 50
 
-# the number of epochs in `LearnHyperPlane`
-Epoch = 10
-
-# the regularization parameter in `LearnHyperPlane`
-Lambda = 4
-
+### knng ###
 # threshold parameter in Approximate version of `KNNG`
 ThresholdParameter = 50
 
 # k in `KNNG`
-KNNGNumber = 10
+NumOfNeighbors = 10
 
+### learn_hyperplane ###
 # the epsilon in derivative
 Epsilon = 1e-8
 
-### AdaGrad ###
+# the number of epochs in `LearnHyperPlane`
+Epoch = 10 # <= N // BatchSize
+
+# the batch size in `LearnHyperPlane`
+BatchSize = 100 # <= N
+
+# the sample size in `LearnHyperPlane`
+SampleSize = 10 # <= MaxInLeaf
+
+# the regularization parameter in `LearnHyperPlane`
+Lambda = 4
+
 # the initial learning rate in `AdaGrad`
 InitialLearningRate = 0.1
 
-# the sample size in `AdaGrad`
-SampleSize = 10 # <= MaxInLeaf
-
-### SGD ###
-# the batch size in `SGD`
-BatchSize = 100
-
-### Adam ###
-# some parameters
-beta_1 = 0.9
-beta_2 = 0.999
-
-# the batch size in `Adam`
-BatchSizeInAdam = 100
-
-### Validation ###
-# k in `precision@k`
-KOfPrecision = 3

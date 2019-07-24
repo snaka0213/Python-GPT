@@ -2,7 +2,7 @@
 import random
 import numpy as np
 
-from .knng import InvertedIndex, KNNG
+from .knng import KNNG
 from .learn_hyperplane import LearnHyperPlane
 
 class Node(object):
@@ -17,17 +17,17 @@ class Node(object):
 
 
 class ClassificationTree(object):
-    def __init__(self, L: int, M: int, k: int, max_in_leaf: int, inverted_index: InvertedIndex, debug=False):
+    def __init__(self, L: int, M: int, k: int, max_in_leaf: int, inverted_index, debug=False):
         self.L = L # label vector space dimension
         self.M = M # feature vector space dimension
         self.k = k # k in `KNNG`
         self.MaxInLeaf = max_in_leaf # max size of leafs in output tree
         self._root = Node() # root node
-        self._index = inverted_index
+        self._index = inverted_index # InvertedIndex object
         self._debug = debug
 
     def load(self, data_set: dict):
-        random_index = random.choice(data_set.keys())
+        random_index = random.choice(list(data_set.keys()))
         init_normal = data_set[random_index]["feature"]
         self._root = self._grow_tree(data_set, init_normal)
 
@@ -48,11 +48,11 @@ class ClassificationTree(object):
             return np.zeros(self.L, dtype=int)
 
     def _split_node(self, data_set: dict, init_normal: np.ndarray) -> tuple:
-        L, M = self.L, self.M
+        L, M, k = self.L, self.M, self.k
         label_vector_dict = {key: data_set[key]["label"] for key in data_set.keys()}
         feature_vector_dict = {key: data_set[key]["feature"] for key in data_set.keys()}
         
-        knng = KNNG(k, L, label_vector_list, self._index)
+        knng = KNNG(k, L, label_vector_dict, self._index)
         lhp = LearnHyperPlane(M, knng.get_graph(), feature_vector_dict, init_normal)
 
         ### Learning Part ###
@@ -66,13 +66,13 @@ class ClassificationTree(object):
             else:
                 right[key] = data_set[key]
 
-        left_random_index = random.choice(left.keys())
-        left_init_normal = data_set[left_random_index]["feature"]
+        left_random_index = random.choice(list(left.keys())) if left else None
+        left_init_normal = data_set[left_random_index]["feature"] if left else None
         left_tree = self._grow_tree(left, left_init_normal)
 
-        right_random_index = random.choice(right.keys())
-        right_init_normal = data_set[right_random_index]["feature"]
-        right_tree = self._grow_tree(right, right_init_normal )
+        right_random_index = random.choice(list(right.keys())) if right else None
+        right_init_normal = data_set[right_random_index]["feature"] if right else None
+        right_tree = self._grow_tree(right, right_init_normal)
         
         return (left_tree, right_tree, normal)
 
@@ -80,7 +80,7 @@ class ClassificationTree(object):
         pointer = self._root
         while not pointer.isleaf():
             normal = pointer.normal
-            if two_valued_classifier(sample, normal):
+            if self._two_valued_classifier(sample, normal):
                 pointer = pointer.left
             else:
                 pointer = pointer.right

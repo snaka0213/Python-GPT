@@ -1,7 +1,7 @@
 #!/user/bin/env python3
 import json
 import heapq
-import nunpy as np
+import numpy as np
 
 '''
 __Terminology__
@@ -29,24 +29,25 @@ __Assume__
 '''
 
 class InvertedIndex(object):
-    def __init__(self, L: int, data_set: dict, TH=False):
+    def __init__(self, L: int = None, data_set: dict = None, TH=False):
         self.L = L
         self.TH = TH
         self._data_set = data_set
         self.index_dict = None
-    
-        # order: L*N
-        self._fiber_list = [self._fiber(l) for l in range(L)]
-        
-        # order: <= L*N, max length of elements: <= TH*L
-        self.index_dict = {key: self._inverted_index(key) for key in data_set.keys()}
+
+        if L is not None and data_set is not None:
+            # order: L*N
+            self._fiber_list = [self._fiber(l) for l in range(L)]
+            
+            # order: <= L*N, max length of elements: <= TH*L
+            self.index_dict = {key: self._inverted_index(key) for key in data_set.keys()}
 
     # returns inverted_index of key
     def get(self, key) -> list:
         return self.index_dict[key]
 
     # order: len(args)*N
-    def _fiber(self, *args, remove=None) -> list:
+    def _fiber(self, *args, remove=None) -> set:
         data_set = self._data_set
         
         s = set()
@@ -54,7 +55,7 @@ class InvertedIndex(object):
             s = s | {key for key in data_set.keys() if self._hasattr(data_set[key]["label"], label)}
         if remove in s:
             s.remove(remove)
-        return list(s)
+        return s
 
     # order: <= L*N
     def _inverted_index(self, query_index: int) -> list:
@@ -64,7 +65,7 @@ class InvertedIndex(object):
         query = self._data_set[query_index]["label"]
         query_labels = [l for l in range(L) if self._hasattr(query, l) \
                         and not(TH and len(fiber_list[l]) >= TH)]
-        return self._fiber(*query_labels, remove=query_index)
+        return list(self._fiber(*query_labels, remove=query_index))
 
     # order: 1
     def _hasattr(self, label_vector, label) -> bool:
@@ -73,14 +74,17 @@ class InvertedIndex(object):
     ### File Writer ###
     # save inverted_index as a new json file, list of
     # {index: inverted_index[index] (: list object)}
-    def write(self, file_name: str):
+    def write(self, file_name: str, debug=False):
         with open(file_name, 'w') as f:
             json.dump(self.index_dict, f)
+            
+        if debug:
+            print("Successfully saved inverted index file: {}".format(file_name))
     
     ### File Reader ###
     # save inverted_index in self from a json file
     # Notice: keys in json are ALWAYS strings
-    def open(self, file_name: str):
+    def load(self, file_name: str):
         with open(file_name, 'r') as f:
             encoded_dict = json.load(f)
             self.index_dict = {int(key): encoded_dict[key] for key in encoded_dict.keys()}

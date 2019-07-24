@@ -1,6 +1,5 @@
 #!/user/bin/env python3
 import numpy as np
-import settings
 
 # Stochastic Gradient Descent
 class SGD(object):

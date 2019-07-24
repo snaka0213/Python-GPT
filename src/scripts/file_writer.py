@@ -3,7 +3,7 @@ import numpy as np
 
 class FileWriter(object):
     def __init__(self, file_name: str):
-        self._file = file_name
+        self._file = file_name 
 
     # write on file sorted the top of k-labels
     def write(self, k: int, label_vector_list: list):

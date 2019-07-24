@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from .learning.file_writer import FileWriter
+from .file_writer import FileWriter
 
 class Predict(object):
     def __init__(self):
