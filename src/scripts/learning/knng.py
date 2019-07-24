@@ -36,8 +36,8 @@ class KNNG(object):
 
         index_in_data_set = set(data_set.keys())
         oriented_graph = OrientedGraph(list(data_set.keys()))
+        knn = KNN(L, data_set)
         for i in data_set.keys():
-            knn = KNN(L, data_set)
             index_list = [i for i in inverted_index.get(i) if i in index_in_data_set]
             knn_index = knn.get_index(k, data_set[i], index_list)
             for j in knn_index:

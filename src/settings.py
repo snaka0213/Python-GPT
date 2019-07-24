@@ -12,7 +12,7 @@ OutputFileName = "prediction.txt"
 
 ### validation ###
 # k of `precision@k`
-KOfPrecision = 3
+KOfPrecision = 5
 
 ### classifier ###
 # max number of leafs in `ClassificationTree`

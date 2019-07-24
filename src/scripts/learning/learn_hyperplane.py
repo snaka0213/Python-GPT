@@ -78,7 +78,7 @@ class LearnHyperPlane(object):
         objective = Objective(epsilon=epsilon, Lambda=Lambda)
         optimizer = AdaGrad(learning_rate=learning_rate)
         params = {"normal": self.normal}
-        grads = {"normal": None}
+        grads = {"normal": np.zeros_like(self.normal)}
         
         for epoch in range(Epoch):
             # mini batch learning
@@ -86,6 +86,7 @@ class LearnHyperPlane(object):
             batch_index = random.sample(feature_index_list, batch_size)
             for i in batch_index:
                 feature_index_list.remove(i)
-                grads["normal"] = objective.gradient(graph, i, feature_vector_dict, samples_index, self.normal)
-                optimizer.update(params, grads)
+                grads["normal"] -= (1/batch_size)*objective.gradient(graph, i, feature_vector_dict, samples_index, self.normal)
+
+            optimizer.update(params,grads)
                 
