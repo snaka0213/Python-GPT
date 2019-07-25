@@ -64,7 +64,8 @@ class Objective(object):
             self.value(knn_list, feature_index, feature_vector_dict, samples_index, normal + epsilon * standard_basis(M, i)) \
             - self.value(knn_list, feature_index, feature_vector_dict, samples_index, normal) for i in range(M)
         ])
-
+    
+                                                                          
 class LearnHyperPlane(object):
     def __init__(self, M: int, knn, feature_vector_dict, inverted_index, init_normal):
         self.M = M # dimension of feature vector space
@@ -83,13 +84,14 @@ class LearnHyperPlane(object):
         # AdaGrad
         objective = Objective(epsilon=epsilon, Lambda=Lambda)
         optimizer = AdaGrad(learning_rate=learning_rate)
-        params = {"normal": self.normal}
-        grads = {"normal": np.zeros_like(self.normal)}
         
         for epoch in range(Epoch):
             # mini batch learning
             samples_index = random.sample(feature_vector_dict.keys(), sample_size)
             batch_index = random.sample(feature_index_list, batch_size)
+            params = {"normal": self.normal}
+            grads = {"normal": np.zeros_like(self.normal)}
+            
             for i in batch_index:
                 index_list = list(set(inverted_index.get(i))&feature_index_set)
                 knn_list = knn.get_index(feature_vector_dict[i], index_list)
@@ -97,4 +99,8 @@ class LearnHyperPlane(object):
                 grads["normal"] -= (1/batch_size)*objective.gradient(knn_list, i, feature_vector_dict, samples_index, self.normal)
 
             optimizer.update(params, grads)
-                
+            if debug:
+                print("Epoch: {}, Value: {}".format(
+                    epoch,
+                    objective.value(knn_list, i, feature_vector_dict, samples_index, self.normal)
+                ))

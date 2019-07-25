@@ -3,13 +3,6 @@
 ### Debug ###
 DEBUG = True
 
-### File ###
-DataFilePath = "data/Wiki10-31K/"
-TrainFileName = DataFilePath + "train.txt"
-InvertedIndexFileName = DataFilePath + "index.json"
-PredictFileName = DataFilePath + "test.txt"
-OutputFileName = "prediction.txt"
-
 ### validation ###
 # k of `precision@k`
 KOfPrecision = 5
@@ -36,7 +29,7 @@ Epsilon = 1e-8
 Epoch = 10 # <= N // BatchSize
 
 # the batch size in `LearnHyperPlane`
-BatchSize = 1 # <= N
+BatchSize = 100 # <= N
 
 # the sample size in `LearnHyperPlane`
 SampleSize = 10 # <= MaxInLeaf
