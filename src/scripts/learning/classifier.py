@@ -2,7 +2,7 @@
 import random
 import numpy as np
 
-from .knng import KNNG
+from .knng import KNN
 from .learn_hyperplane import LearnHyperPlane
 
 class Node(object):
@@ -52,8 +52,8 @@ class ClassificationTree(object):
         label_vector_dict = {key: data_set[key]["label"] for key in data_set.keys()}
         feature_vector_dict = {key: data_set[key]["feature"] for key in data_set.keys()}
         
-        knng = KNNG(k, L, label_vector_dict, self._index)
-        lhp = LearnHyperPlane(M, knng.get_graph(), feature_vector_dict, init_normal)
+        knn = KNN(L, k, feature_vector_dict)
+        lhp = LearnHyperPlane(M, knn, feature_vector_dict, self._index, init_normal)
 
         ### Learning Part ###
         lhp.learn(self._debug)

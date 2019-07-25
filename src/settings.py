@@ -36,7 +36,7 @@ Epsilon = 1e-8
 Epoch = 10 # <= N // BatchSize
 
 # the batch size in `LearnHyperPlane`
-BatchSize = 100 # <= N
+BatchSize = 1 # <= N
 
 # the sample size in `LearnHyperPlane`
 SampleSize = 10 # <= MaxInLeaf

@@ -32,21 +32,23 @@ class Objective(object):
         self.epsilon = epsilon
         self.Lambda = Lambda
 
-    def value(self, graph, feature_index, feature_vector_dict, samples_index, normal):
+    # We assume that:
+    ## knn_list: k-nearest neighbours of feature_index in feature_vector_dict
+    def value(self, knn_list, feature_index, feature_vector_dict, samples_index, normal):
         val = 0
         feature_vector = feature_vector_dict[feature_index]
         constant = two_valued_classifier(feature_vector, normal)
-        for index in graph.edges[feature_index]:
-            vector = feature_vector_dict[index]
-            z = constant*np.dot(vector, normal)
+        for index in knn_list:
+            knn_vector = feature_vector_dict[index]
+            z = constant*np.dot(knn_vector, normal)
             if -z > 700:
                 val += z
             else:
                 val += np.log(sigma(z))
 
         for random_index in samples_index:
-            vector = feature_vector_dict[random_index]
-            z = -constant*np.dot(vector, normal)
+            random_vector = feature_vector_dict[random_index]
+            z = -constant*np.dot(random_vector, normal)
             if -z > 700:
                 val += z
             else:
@@ -56,22 +58,26 @@ class Objective(object):
         val -= Lambda * np.linalg.norm(normal, 1)
         return val
 
-    def gradient(self, graph, feature_index, feature_vector_dict, samples_index, normal):
+    def gradient(self, knn_list, feature_index, feature_vector_dict, samples_index, normal):
         epsilon, Lambda, M = self.epsilon, self.Lambda, normal.size
         return (1/epsilon)*np.array([
-            self.value(graph, feature_index, feature_vector_dict, samples_index, normal + epsilon * standard_basis(M, i)) \
-            - self.value(graph, feature_index, feature_vector_dict, samples_index, normal) for i in range(M)
+            self.value(knn_list, feature_index, feature_vector_dict, samples_index, normal + epsilon * standard_basis(M, i)) \
+            - self.value(knn_list, feature_index, feature_vector_dict, samples_index, normal) for i in range(M)
         ])
 
 class LearnHyperPlane(object):
-    def __init__(self, M: int, graph, feature_vector_dict, init_normal):
+    def __init__(self, M: int, knn, feature_vector_dict, inverted_index, init_normal):
         self.M = M # dimension of feature vector space
-        self._graph = graph # OrientedGraph object (KNNG)
+        self._knn = knn # knn of `KNNG`, k-nearest neighbors' index
         self._feature_vector_dict = feature_vector_dict # {index: feature vector (: np.ndarray)}
+        self._inverted_index = inverted_index # InvertedIndex object
         self.normal = init_normal # normal vector of hyperplane
 
     def learn(self, debug=False):
-        graph, feature_vector_dict = self._graph, self._feature_vector_dict
+        knn = self._knn
+        inverted_index = self._inverted_index
+        feature_vector_dict = self._feature_vector_dict
+        feature_index_set = set(feature_vector_dict.keys())
         feature_index_list = list(feature_vector_dict.keys())
 
         # AdaGrad
@@ -85,8 +91,10 @@ class LearnHyperPlane(object):
             samples_index = random.sample(feature_vector_dict.keys(), sample_size)
             batch_index = random.sample(feature_index_list, batch_size)
             for i in batch_index:
+                index_list = list(set(inverted_index.get(i))&feature_index_set)
+                knn_list = knn.get_index(feature_vector_dict[i], index_list)
                 feature_index_list.remove(i)
-                grads["normal"] -= (1/batch_size)*objective.gradient(graph, i, feature_vector_dict, samples_index, self.normal)
+                grads["normal"] -= (1/batch_size)*objective.gradient(knn_list, i, feature_vector_dict, samples_index, self.normal)
 
-            optimizer.update(params,grads)
+            optimizer.update(params, grads)
                 
