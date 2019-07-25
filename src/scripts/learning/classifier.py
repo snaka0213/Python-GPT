@@ -39,7 +39,7 @@ class ClassificationTree(object):
             return Node(*self._split_node(data_set, init_normal))
 
     def _two_valued_classifier(self, sample: np.ndarray, normal: np.ndarray) -> bool:
-        return np.dot(normal, sample) > 0
+        return normal @ sample.T > 0
 
     def _empirical_label_distribution(self, data_set): # -> label vector, np.ndarray object
         if data_set:
@@ -51,7 +51,7 @@ class ClassificationTree(object):
         L, M, k = self.L, self.M, self.k
         label_vector_dict = {key: data_set[key]["label"] for key in data_set.keys()}
         feature_vector_dict = {key: data_set[key]["feature"] for key in data_set.keys()}
-        
+
         knn = KNN(L, k, feature_vector_dict)
         lhp = LearnHyperPlane(M, knn, feature_vector_dict, self._index, init_normal)
 
@@ -73,7 +73,7 @@ class ClassificationTree(object):
         right_random_index = random.choice(list(right.keys())) if right else None
         right_init_normal = data_set[right_random_index]["feature"] if right else None
         right_tree = self._grow_tree(right, right_init_normal)
-        
+
         return (left_tree, right_tree, normal)
 
     def classify(self, sample: np.ndarray): # -> label vector, np.ndarray object
@@ -87,4 +87,3 @@ class ClassificationTree(object):
 
         else:
             return pointer.label
-
