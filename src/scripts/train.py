@@ -25,7 +25,7 @@ class Train(object):
     
     def make_tree(self, T: int, k: int, max_in_leaf: int, inverted_index, debug=False): # -> T-tuple of Trees
         data_set, L, M = self._data_set, self.L, self.M
-        tree_list = [ClassificationTree(L, M, k, max_in_leaf, inverted_index) for i in range(T)]
+        tree_list = [ClassificationTree(L, M, k, max_in_leaf, inverted_index, debug) for i in range(T)]
         for i in range(T):
             tree_list[i].load(data_set)
             if debug:

@@ -26,10 +26,7 @@ NumOfNeighbors = 10
 Epsilon = 1e-8
 
 # the number of epochs in `LearnHyperPlane`
-Epoch = 10 # <= N // BatchSize
-
-# the batch size in `LearnHyperPlane`
-BatchSize = 100 # <= N
+Epoch = 10
 
 # the sample size in `LearnHyperPlane`
 SampleSize = 10 # <= MaxInLeaf

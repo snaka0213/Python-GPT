@@ -4,12 +4,12 @@ import random
 import numpy as np
 
 import settings
+from .optimizer.sgd import SGD
 from .optimizer.adagrad import AdaGrad
 
 Epoch   = settings.Epoch
 Lambda  = settings.Lambda
 epsilon = settings.Epsilon
-batch_size    = settings.BatchSize
 sample_size   = settings.SampleSize
 learning_rate = settings.InitialLearningRate
 
@@ -27,7 +27,7 @@ def two_valued_classifier(sample: np.ndarray, normal: np.ndarray) -> int:
     return 1 if normal @ sample.T > 0 else -1
 
 # TODO: lambda regularization -> normalization of normal vector
-class Objective(object):
+class Loss(object):
     def __init__(self, epsilon=1e-8, Lambda=4):
         self.epsilon = epsilon
         self.Lambda = Lambda
@@ -56,7 +56,7 @@ class Objective(object):
 
         # regularization
         val -= Lambda * np.linalg.norm(normal, 1)
-        return val
+        return -val
 
     def gradient(self, knn_list, feature_index, feature_vector_dict, samples_index, normal):
         epsilon, Lambda, M = self.epsilon, self.Lambda, normal.size
@@ -78,29 +78,24 @@ class LearnHyperPlane(object):
         knn = self._knn
         inverted_index = self._inverted_index
         feature_vector_dict = self._feature_vector_dict
-        feature_index_set = set(feature_vector_dict.keys())
-        feature_index_list = list(feature_vector_dict.keys())
 
         # AdaGrad
-        objective = Objective(epsilon=epsilon, Lambda=Lambda)
+        loss = Loss(epsilon=epsilon, Lambda=Lambda)
         optimizer = AdaGrad(learning_rate=learning_rate)
 
         for epoch in range(Epoch):
             # mini batch learning
             samples_index = random.sample(feature_vector_dict.keys(), sample_size)
-            batch_index = random.sample(feature_index_list, batch_size)
             params = {"normal": self.normal}
             grads = {"normal": np.zeros_like(self.normal)}
 
-            for i in batch_index:
-                index_list = list(set(inverted_index.get(i))&feature_index_set)
+            for i in feature_vector_dict.keys():
+                index_list = list(set(inverted_index.get(i))&set(feature_vector_dict.keys()))
                 knn_list = knn.get_index(feature_vector_dict[i], index_list)
-                feature_index_list.remove(i)
-                grads["normal"] -= (1/batch_size)*objective.gradient(knn_list, i, feature_vector_dict, samples_index, self.normal)
-
-            optimizer.update(params, grads)
-            if debug:
-                print("Epoch: {}, Value: {}".format(
-                    epoch,
-                    objective.value(knn_list, i, feature_vector_dict, samples_index, self.normal)
-                ))
+                grads["normal"] += loss.gradient(knn_list, i, feature_vector_dict, samples_index, self.normal)
+                optimizer.update(params, grads)
+                if debug:
+                    print("Epoch: {}, Index: {}, Value: {}".format(
+                        epoch, i,
+                        loss.value(knn_list, i, feature_vector_dict, samples_index, self.normal)
+                    ))

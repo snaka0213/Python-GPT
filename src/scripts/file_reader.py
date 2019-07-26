@@ -29,7 +29,6 @@ class FileReader(object):
                      "label" : np.zeros(L, dtype=int),
                     "feature": np.zeros(M),
                 }
-                
                 labels = [int(x) for x in line.split()[0].split(",")]
                 for label in labels:
                     data["label"][label] = 1
