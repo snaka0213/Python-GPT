@@ -6,9 +6,11 @@ import numpy as np
 import settings
 from .optimizer.sgd import SGD
 from .optimizer.adagrad import AdaGrad
+from joblib import Parallel, delayed
 
 Epoch   = settings.Epoch
 Lambda  = settings.Lambda
+Threads = settings.Threads
 epsilon = settings.Epsilon
 sample_size   = settings.SampleSize
 learning_rate = settings.InitialLearningRate
@@ -83,19 +85,19 @@ class LearnHyperPlane(object):
         loss = Loss(epsilon=epsilon, Lambda=Lambda)
         optimizer = AdaGrad(learning_rate=learning_rate)
 
+        # an epoch
+        def learn_in_epoch(i, params, grads):
+            samples_index = random.sample(feature_vector_dict.keys(), sample_size)
+            index_list = list(set(inverted_index.get(i))&set(feature_vector_dict.keys()))
+            knn_list = knn.get_index(feature_vector_dict[i], index_list)
+            grads["normal"] += loss.gradient(knn_list, i, feature_vector_dict, samples_index, self.normal)
+            optimizer.update(params, grads)
+
+
         for epoch in range(Epoch):
             # mini batch learning
-            samples_index = random.sample(feature_vector_dict.keys(), sample_size)
             params = {"normal": self.normal}
             grads = {"normal": np.zeros_like(self.normal)}
-
-            for i in feature_vector_dict.keys():
-                index_list = list(set(inverted_index.get(i))&set(feature_vector_dict.keys()))
-                knn_list = knn.get_index(feature_vector_dict[i], index_list)
-                grads["normal"] += loss.gradient(knn_list, i, feature_vector_dict, samples_index, self.normal)
-                optimizer.update(params, grads)
-                if debug:
-                    print("Epoch: {}, Index: {}, Value: {}".format(
-                        epoch, i,
-                        loss.value(knn_list, i, feature_vector_dict, samples_index, self.normal)
-                    ))
+            Parallel(n_jobs=Threads, verbose=5)(delayed(learn_in_epoch)(i, params, grads) for i in feature_vector_dict.keys())
+            if debug:
+                print("Epoch {}: Done".format(epoch))
