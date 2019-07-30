@@ -53,10 +53,10 @@ class ClassificationTree(object):
         feature_vector_dict = {key: data_set[key]["feature"] for key in data_set.keys()}
 
         knn = KNN(L, k, feature_vector_dict)
-        lhp = LearnHyperPlane(M, knn, feature_vector_dict, self._index, init_normal)
+        lhp = LearnHyperPlane(M, knn, feature_vector_dict, self._index, init_normal, self._debug)
 
         ### Learning Part ###
-        lhp.learn(self._debug)
+        lhp.learn()
 
         normal = lhp.normal
         left, right = {}, {}

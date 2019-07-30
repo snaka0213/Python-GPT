@@ -25,12 +25,12 @@ def log_sigmoid(*args):
 
 # the i-th standard_basis in n-dim Euclidian space
 def standard_basis(n: int, i: int, v: np.float64) -> np.ndarray:
-    e = np.zeros(n, dtype=int); e[i] = v
+    e = np.zeros(n, dtype=np.float64); e[i] = v
     return e
 
 # if sample in the same posision as `normal`: +1; else: -1
 def two_valued_classifier(sample: np.ndarray, normal: np.ndarray) -> int:
-    return 1 if normal @ sample.T > 0 else -1
+    return 1 if sample @ normal.T > 0 else -1
 
 # TODO: lambda regularization -> normalization of normal vector
 class Loss(object):
@@ -44,11 +44,12 @@ class Loss(object):
         val = 0
         feature_vector = feature_vector_dict[feature_index]
         constant = two_valued_classifier(feature_vector, normal)
-        val += sum([log_sigmoid(constant * feature_vector_dict[index] @ normal.T) for index in knn_list])
-        val += sum([log_sigmoid(-constant * feature_vector_dict[random_index] @ normal.T) for random_index in samples_index])
+
+        val += log_sigmoid(*[(constant * feature_vector_dict[index] @ normal.T) for index in knn_list])
+        val += log_sigmoid(*[(-constant * feature_vector_dict[random_index] @ normal.T) for random_index in samples_index])
 
         # regularization
-        val -= Lambda * np.linalg.norm(normal, 1)
+        val -= self.Lambda * np.linalg.norm(normal, 1)
         return -val
 
     def gradient(self, knn_list, feature_index, feature_vector_dict, samples_index, normal):
@@ -58,56 +59,62 @@ class Loss(object):
             - self.value(knn_list, feature_index, feature_vector_dict, samples_index, normal))*(1/epsilon) for j in range(M)
         ])
 
-
 class LearnHyperPlane(object):
-    def __init__(self, M: int, knn, feature_vector_dict, inverted_index, init_normal):
+    def __init__(self, M: int, knn, feature_vector_dict, inverted_index, init_normal, debug):
         self.M = M # dimension of feature vector space
         self._knn = knn # knn of `KNNG`, k-nearest neighbors' index
         self._feature_vector_dict = feature_vector_dict # {index: feature vector (: np.ndarray)}
         self._inverted_index = inverted_index # InvertedIndex object
         self.normal = init_normal # normal vector of hyperplane
+        self._debug = debug # print debug
 
-    def learn(self, debug=False):
+    def learn(self):
+        feature_vector_dict = self._feature_vector_dict
+        params = {"normal": self.normal}
+        Parallel(n_jobs=Threads, verbose=5)(delayed(self.job)(i, params) for i in feature_vector_dict.keys())
+
+    # epochs
+    def job(self, i, params):
+        feature_vector_dict = self._feature_vector_dict
+        samples_index = random.sample(feature_vector_dict.keys(), sample_size)
+
+        # AdaGrad
+        optimizer = AdaGrad(learning_rate=learning_rate)
+        for epoch in range(Epoch):
+            self.learn_in_epoch(i, params, samples_index, optimizer)
+            
+        if self._debug:
+            print("### Learning at index {}: Done. ###".format(i))
+                
+
+    # an epoch
+    def learn_in_epoch(self, i, params, samples_index, optimizer):
         M = self.M
         knn = self._knn
         inverted_index = self._inverted_index
         feature_vector_dict = self._feature_vector_dict
-        samples_index = random.sample(feature_vector_dict.keys(), sample_size)
 
-        # an epoch
-        def learn_in_epoch(i, params, optimizer):
-            normal = params["normal"]
-            knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
-            # refactored version
-            constant = two_valued_classifier(feature_vector_dict[i], normal)
-            normal_clness = {p: constant*feature_vector_dict[p]@normal.T for p in knn_list}
-            sample_clness = {p: -constant*feature_vector_dict[p]@normal.T for p in samples_index}
+        knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
+        normal = params["normal"]
 
-            norm_perturbed_along = [
-                np.linalg.norm(normal+standard_basis(M, q, epsilon), 1) for q in range(M)
-            ]
-            loss_perturbed_along = [
-                -log_sigmoid(*[normal_clness[p]+epsilon*constant*feature_vector_dict[p][q] for p in knn_list]) \
-                -log_sigmoid(*[sample_clness[p]-epsilon*constant*feature_vector_dict[p][q] for p in samples_index]) \
-                +Lambda*norm_perturbed_along[q] for q in range(M)
-            ]
-            loss_at_point = -log_sigmoid(*normal_clness) - log_sigmoid(*sample_clness) + Lambda*np.linalg.norm(normal, 1)
-            grad = np.array([(1/epsilon)*(loss_perturbed_along[q]-loss_at_point) for q in range(M)])
+        # refactored version
+        constant = two_valued_classifier(feature_vector_dict[i], normal)
+        normal_clness = {p: constant*feature_vector_dict[p]@normal.T for p in knn_list}
+        sample_clness = {p: -constant*feature_vector_dict[p]@normal.T for p in samples_index}
 
-            grads = {"normal": grad}
-            optimizer.update(params, grads)
-            if debug:
-                loss = Loss(epsilon, Lambda)
-                value = loss.value(knn_list, i, feature_vector_dict, samples_index, params["normal"])
-                print("Index: {}, Loss: {}".format(i, value))
+        loss_at_point = -log_sigmoid(*[normal_clness[p] for p in knn_list])-log_sigmoid(*[sample_clness[p] for p in samples_index])
+        if self._debug:
+            value = loss_at_point
+            print("Index: {}, Loss: {}".format(i, value))
 
-        def job(i, params):
-            # AdaGrad
-            optimizer = AdaGrad(learning_rate=learning_rate)
-            for epoch in range(Epoch):
-                if debug:
-                    print("### Epoch: {} ###".format(epoch))
-                learn_in_epoch(i, params, optimizer)
+        norm_diff_along = [
+            np.abs(normal[q]+epsilon)-np.abs(normal[q]) for q in range(M)
+        ]
+        loss_perturbed_along = [
+            -log_sigmoid(*[normal_clness[p]+epsilon*constant*feature_vector_dict[p][q] for p in knn_list]) \
+            -log_sigmoid(*[sample_clness[p]-epsilon*constant*feature_vector_dict[p][q] for p in samples_index]) \
+            +Lambda*norm_diff_along[q] for q in range(M)
+        ]
 
-        params = {"normal": self.normal}
-        Parallel(n_jobs=Threads, verbose=5)(delayed(job)(i, params) for i in feature_vector_dict.keys())
+        grads = {"normal": np.array([(1/epsilon)*(loss_perturbed_along[q]-loss_at_point) for q in range(M)])}
+        optimizer.update(params, grads)
