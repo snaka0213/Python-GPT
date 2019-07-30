@@ -23,7 +23,7 @@ NumOfNeighbors = 10
 
 ### learn_hyperplane ###
 # the number of threads
-Threads = 1
+Threads = 4
 
 # the epsilon in derivative
 Epsilon = 1e-8
