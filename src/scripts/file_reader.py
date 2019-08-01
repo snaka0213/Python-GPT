@@ -15,7 +15,7 @@ class FileReader(object):
         self.M = None # feature vector space dimension
         self.N = None # the size of data_set
 
-    def read(self) -> list:
+    def read(self) -> dict:
         with open(self._file, "r") as f:
             header = f.readline()
             N, M, L = (int(x) for x in header.split())
@@ -29,11 +29,18 @@ class FileReader(object):
                      "label" : np.zeros(L, dtype=int),
                     "feature": np.zeros(M),
                 }
-                labels = [int(x) for x in line.split()[0].split(",")]
+                zero_term = line.split()[0]
+                if not ':' in zero_term:
+                    start_index = 1
+                    labels = [int(x) for x in zero_term.split(",")]
+                else:
+                    start_index = 0
+                    labels = []
+
                 for label in labels:
                     data["label"][label] = 1
                     
-                for x in line.split()[1:]:
+                for x in line.split()[start_index:]:
                     data["feature"][int(x.split(":")[0])] = float(x.split(":")[1])
 
                 data_set[index] = data  

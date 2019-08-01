@@ -6,7 +6,6 @@ import numpy as np
 import settings
 from .optimizer.sgd import SGD
 from .optimizer.adagrad import AdaGrad
-from joblib import Parallel, delayed
 
 Epoch   = settings.Epoch
 Lambda  = settings.Lambda
@@ -71,7 +70,8 @@ class LearnHyperPlane(object):
     def learn(self):
         feature_vector_dict = self._feature_vector_dict
         params = {"normal": self.normal}
-        Parallel(n_jobs=Threads, verbose=5)(delayed(self.job)(i, params) for i in feature_vector_dict.keys())
+        for i in feature_vector_dict.keys():
+            self.job(i, params)
 
     # epochs
     def job(self, i, params):

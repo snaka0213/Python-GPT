@@ -1,9 +1,21 @@
 #!/user/bin/env python3
+import json
 import random
 import numpy as np
 
 from .knng import KNN
 from .learn_hyperplane import LearnHyperPlane
+
+class Encoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, numpy.integer):
+            return int(obj)
+        elif isinstance(obj, numpy.floating):
+            return float(obj)
+        elif isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        else:
+            return super(MyEncoder, self).default(obj)
 
 class Node(object):
     def __init__(self, left=None, right=None, normal=None, label=None):
@@ -15,6 +27,25 @@ class Node(object):
     def isleaf(self) -> bool:
         return self.left is None and self.right is None
 
+    def node_to_dict(self) -> dict:
+        def grow_dict(node):
+            if node.isleaf():
+                return {"label": node.label.tolist()}
+            else:
+                left = grow_dict(node.left)
+                right = grow_dict(node.right)
+                return {"left": left, "right": right, "normal": node.normal.tolist()}
+    
+        return grow_dict(self)
+    
+    # save tree as json file
+    def write(self, file_name: str, debug=False):
+        with open(file_name, 'w') as f:
+            json.dump(self.node_to_dict(), f, cls=Encoder)
+            
+        if debug:
+            print("Successfully saved trees: {}".format(file_name))            
+
 
 class ClassificationTree(object):
     def __init__(self, L: int, M: int, k: int, max_in_leaf: int, inverted_index, debug=False):
@@ -22,14 +53,32 @@ class ClassificationTree(object):
         self.M = M # feature vector space dimension
         self.k = k # k in `KNNG`
         self.MaxInLeaf = max_in_leaf # max size of leafs in output tree
-        self._root = Node() # root node
+        self.root = Node() # root node
         self._index = inverted_index # InvertedIndex object
         self._debug = debug
 
+    # make tree from data_set
     def load(self, data_set: dict):
         random_index = random.choice(list(data_set.keys()))
         init_normal = data_set[random_index]["feature"]
-        self._root = self._grow_tree(data_set, init_normal)
+        self.root = self._grow_tree(data_set, init_normal)
+
+    # open tree from json file
+    def open(self, file_name: str): 
+        def grow_node(d):
+            if d is None:
+                return None
+            else:
+                left = grow_node(d.get("left"))
+                right = grow_node(d.get("right"))
+                normal = np.array(d.get("normal")) if d.get("normal") else None
+                label = np.array(d.get("label")) if d.get("label") else None
+
+            return Node(left=left, right=right, normal=normal, label=label)
+        
+        with open(file_name, 'r') as f:
+            encoded_dict = json.load(f)
+            self.root = grow_node(encoded_dict)  
 
     def _grow_tree(self, data_set: dict, init_normal: np.ndarray) -> Node:
         if len(data_set) <= self.MaxInLeaf:
@@ -77,7 +126,7 @@ class ClassificationTree(object):
         return (left_tree, right_tree, normal)
 
     def classify(self, sample: np.ndarray): # -> label vector, np.ndarray object
-        pointer = self._root
+        pointer = self.root
         while not pointer.isleaf():
             normal = pointer.normal
             if self._two_valued_classifier(sample, normal):
@@ -87,3 +136,4 @@ class ClassificationTree(object):
 
         else:
             return pointer.label
+
