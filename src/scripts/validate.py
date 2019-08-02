@@ -16,13 +16,14 @@ class Validate(object):
 
     def diff(self, label_vector_list: list):
         k, N, predict_list = self.k, self.N, self.predict_list
-        
-        hit_counter = 0
-        for i in range(N):
-            label_vector = label_vector_list[i]
-            predict_labels = predict_list[i]
 
-            for label in predict_labels:
-                hit_counter += label_vector[label]
+        for i in range(1, k+1):
+            hit_counter = 0
+            for j in range(N):
+                label_vector = label_vector_list[j]
+                predict_labels = predict_list[j]
 
-        print("Correct Rate: {}".format(hit_counter/(k*N)))
+                for label in predict_labels[:i]:
+                    hit_counter += label_vector[label]
+
+            print("Precision@{} Correct Rate: {}".format(i, hit_counter/(i*N)))

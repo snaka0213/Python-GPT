@@ -8,9 +8,17 @@ class ExampleGenerator(object):
         self.data_set = {} # data_set
 
         for p in range(N):
-            random_size = random.randint(10,20)
+            random_size = random.randint(1,10)
             random_index = random.sample(range(self.L), random_size)
-            self.data_set[p] = {"features": {q: random.uniform(-1.0,1.0) for q in random_index}}
+            random_vector = {q: 0 for q in random_index}
+
+            for q in random_index:
+                if random.choice((True, False)):
+                    random_vector[q] = random.uniform(1.0, 2.0)
+                else:
+                    random_vector[q] = random.uniform(-2.0, -1.0)
+            
+            self.data_set[p] = {"features": random_vector}
 
         for p in range(N):
             vector_dict = self.data_set[p]["features"]
@@ -27,8 +35,8 @@ class ExampleGenerator(object):
                 f.write("{} {}\n".format(labels, features))
 
 if __name__ == '__main__':
-    e = ExampleGenerator(M=1000, N=200)
+    e = ExampleGenerator(M=10, N=100)
     e.file_write("train.txt")
 
-    e = ExampleGenerator(M=1000, N=100)
+    e = ExampleGenerator(M=10, N=50)
     e.file_write("test.txt")

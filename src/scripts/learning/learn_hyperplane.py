@@ -4,13 +4,13 @@ import random
 import numpy as np
 
 import settings
-from .optimizer.sgd import SGD
 from .optimizer.adagrad import AdaGrad
 
 Epoch   = settings.Epoch
 Lambda  = settings.Lambda
 Threads = settings.Threads
 epsilon = settings.Epsilon
+batch_time = settings.BatchTime
 sample_size   = settings.SampleSize
 learning_rate = settings.InitialLearningRate
 
@@ -69,52 +69,57 @@ class LearnHyperPlane(object):
 
     def learn(self):
         feature_vector_dict = self._feature_vector_dict
+        batch_size = len(feature_vector_dict)//batch_time
         params = {"normal": self.normal}
-        for i in feature_vector_dict.keys():
-            self.job(i, params)
-
-    # epochs
-    def job(self, i, params):
-        feature_vector_dict = self._feature_vector_dict
-        samples_index = random.sample(feature_vector_dict.keys(), sample_size)
-
-        # AdaGrad
         optimizer = AdaGrad(learning_rate=learning_rate)
+        
         for epoch in range(Epoch):
-            self.learn_in_epoch(i, params, samples_index, optimizer)
+            index_list = list(feature_vector_dict.keys())
             
-        if self._debug:
-            print("### Learning at index {}: Done. ###".format(i))
-                
+            # make a mini batch
+            for b in range(batch_time):
+                batch = random.sample(index_list, batch_size)
+                for idx in batch:
+                    index_list.remove(idx)
+
+                # mini batch learning
+                self.learn_in_batch(batch, params, optimizer)
 
     # an epoch
-    def learn_in_epoch(self, i, params, samples_index, optimizer):
+    def learn_in_batch(self, batch, params, optimizer):
         M = self.M
         knn = self._knn
+        batch_size = len(batch)
         inverted_index = self._inverted_index
         feature_vector_dict = self._feature_vector_dict
 
-        knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
-        normal = params["normal"]
+        for i in batch:
+            knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
+            normal = params["normal"]
+            grads = {"normal": np.zeros(M, dtype=np.float64)}
 
-        # refactored version
-        constant = two_valued_classifier(feature_vector_dict[i], normal)
-        normal_clness = {p: constant*feature_vector_dict[p]@normal.T for p in knn_list}
-        sample_clness = {p: -constant*feature_vector_dict[p]@normal.T for p in samples_index}
+            # make negative sampleling point
+            samples_index = random.sample(feature_vector_dict.keys(), sample_size)
 
-        loss_at_point = -log_sigmoid(*[normal_clness[p] for p in knn_list])-log_sigmoid(*[sample_clness[p] for p in samples_index])
-        if self._debug:
-            value = loss_at_point
-            print("Index: {}, Loss: {}".format(i, value))
+            # refactored version
+            constant = two_valued_classifier(feature_vector_dict[i], normal)
+            normal_clness = {p: constant*feature_vector_dict[p]@normal.T for p in knn_list}
+            sample_clness = {p: -constant*feature_vector_dict[p]@normal.T for p in samples_index}
 
-        norm_diff_along = [
-            np.abs(normal[q]+epsilon)-np.abs(normal[q]) for q in range(M)
-        ]
-        loss_perturbed_along = [
-            -log_sigmoid(*[normal_clness[p]+epsilon*constant*feature_vector_dict[p][q] for p in knn_list]) \
-            -log_sigmoid(*[sample_clness[p]-epsilon*constant*feature_vector_dict[p][q] for p in samples_index]) \
-            +Lambda*norm_diff_along[q] for q in range(M)
-        ]
+            loss_at_point = -log_sigmoid(*[normal_clness[p] for p in knn_list])-log_sigmoid(*[sample_clness[p] for p in samples_index])
+            if self._debug:
+                value = loss_at_point
+                print("Index: {}, Loss: {}".format(i, value))
 
-        grads = {"normal": np.array([(1/epsilon)*(loss_perturbed_along[q]-loss_at_point) for q in range(M)])}
+            norm_diff_along = [
+                np.abs(normal[q]+epsilon)-np.abs(normal[q]) for q in range(M)
+            ]
+            loss_perturbed_along = [
+                -log_sigmoid(*[normal_clness[p]+epsilon*constant*feature_vector_dict[p][q] for p in knn_list]) \
+                -log_sigmoid(*[sample_clness[p]-epsilon*constant*feature_vector_dict[p][q] for p in samples_index]) \
+                +Lambda*norm_diff_along[q] for q in range(M)
+            ]
+
+            grads["normal"] += np.array([(1/batch_size)*(1/epsilon)*(loss_perturbed_along[q]-loss_at_point) for q in range(M)])
+
         optimizer.update(params, grads)
