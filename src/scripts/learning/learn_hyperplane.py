@@ -1,4 +1,5 @@
 #!/user/bin/env python3
+import time
 import copy
 import random
 import numpy as np
@@ -10,7 +11,6 @@ Epoch   = settings.Epoch
 Lambda  = settings.Lambda
 Threads = settings.Threads
 epsilon = settings.Epsilon
-batch_time = settings.BatchTime
 sample_size   = settings.SampleSize
 learning_rate = settings.InitialLearningRate
 
@@ -23,13 +23,13 @@ def log_sigmoid(*args):
     return sum([z if -z > 700 else np.log(sigma(z)) for z in args])
 
 # the i-th standard_basis in n-dim Euclidian space
-def standard_basis(n: int, i: int, v: np.float64) -> np.ndarray:
-    e = np.zeros(n, dtype=np.float64); e[i] = v
+def standard_basis(n: int, i: int, v) -> np.ndarray:
+    e = np.zeros(n); e[i] = v
     return e
 
 # if sample in the same posision as `normal`: +1; else: -1
 def two_valued_classifier(sample: np.ndarray, normal: np.ndarray) -> int:
-    return 1 if sample @ normal.T > 0 else -1
+    return 1 if sample@normal.T > 0 else -1
 
 # TODO: lambda regularization -> normalization of normal vector
 class Loss(object):
@@ -69,57 +69,71 @@ class LearnHyperPlane(object):
 
     def learn(self):
         feature_vector_dict = self._feature_vector_dict
-        batch_size = len(feature_vector_dict)//batch_time
         params = {"normal": self.normal}
         optimizer = AdaGrad(learning_rate=learning_rate)
-        
-        for epoch in range(Epoch):
-            index_list = list(feature_vector_dict.keys())
-            
-            # make a mini batch
-            for b in range(batch_time):
-                batch = random.sample(index_list, batch_size)
-                for idx in batch:
-                    index_list.remove(idx)
 
-                # mini batch learning
-                self.learn_in_batch(batch, params, optimizer)
+        for epoch in range(Epoch):
+            print("Epoch: {}, Data Size: {}".format(epoch, len(feature_vector_dict)))
+            self.learn_in_epoch(params, optimizer)
 
     # an epoch
-    def learn_in_batch(self, batch, params, optimizer):
+    def learn_in_epoch(self, params, optimizer):
         M = self.M
         knn = self._knn
-        batch_size = len(batch)
         inverted_index = self._inverted_index
         feature_vector_dict = self._feature_vector_dict
+        shuffled_keys_list = random.sample(feature_vector_dict.keys(), len(feature_vector_dict))
 
-        for i in batch:
-            knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
-            normal = params["normal"]
-            grads = {"normal": np.zeros(M, dtype=np.float64)}
+        checker = random.choice(shuffled_keys_list)
+        start = time.time()
+        self.learn_in_single(checker, params, optimizer, update=False)
+        total = time.time() - start
+        print("Estimated time in 1-epoch: {:.1f} sec.".format(total*len(shuffled_keys_list)))
 
-            # make negative sampleling point
-            samples_index = random.sample(feature_vector_dict.keys(), sample_size)
+        for i in shuffled_keys_list:
+            self.learn_in_single(i, params, optimizer)
 
-            # refactored version
-            constant = two_valued_classifier(feature_vector_dict[i], normal)
-            normal_clness = {p: constant*feature_vector_dict[p]@normal.T for p in knn_list}
-            sample_clness = {p: -constant*feature_vector_dict[p]@normal.T for p in samples_index}
 
-            loss_at_point = -log_sigmoid(*[normal_clness[p] for p in knn_list])-log_sigmoid(*[sample_clness[p] for p in samples_index])
-            if self._debug:
-                value = loss_at_point
-                print("Index: {}, Loss: {}".format(i, value))
+    def learn_in_single(self, i, params, optimizer, update=True):
+        M = self.M
+        knn = self._knn
+        inverted_index = self._inverted_index
+        feature_vector_dict = self._feature_vector_dict
+        shuffled_keys_list = random.sample(feature_vector_dict.keys(), len(feature_vector_dict))
 
-            norm_diff_along = [
-                np.abs(normal[q]+epsilon)-np.abs(normal[q]) for q in range(M)
-            ]
-            loss_perturbed_along = [
-                -log_sigmoid(*[normal_clness[p]+epsilon*constant*feature_vector_dict[p][q] for p in knn_list]) \
-                -log_sigmoid(*[sample_clness[p]-epsilon*constant*feature_vector_dict[p][q] for p in samples_index]) \
-                +Lambda*norm_diff_along[q] for q in range(M)
-            ]
+        knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
+        normal = params["normal"]
+        grads = {"normal": np.zeros(M)}
 
-            grads["normal"] += np.array([(1/batch_size)*(1/epsilon)*(loss_perturbed_along[q]-loss_at_point) for q in range(M)])
+        # make negative sampleling point
+        samples_index = random.sample(feature_vector_dict.keys(), sample_size)
 
-        optimizer.update(params, grads)
+        # make sparse matrix
+        tmp_list = [feature_vector_dict[i]]
+        for j in knn_list:
+            tmp_list.append(feature_vector_dict[j])
+        for j in samples_index:
+            tmp_list.append(feature_vector_dict[j])
+
+        sparse_matrix = np.array(tmp_list)
+        gradient_undeath_index = [q for q in range(M) if sparse_matrix[:,q].any()]
+
+        # refactored version
+        constant = two_valued_classifier(feature_vector_dict[i], normal)
+        normal_clness = {p: constant*np.sum([feature_vector_dict[p][q]*normal[q] for q in gradient_undeath_index]) for p in knn_list}
+        sample_clness = {p: -constant*np.sum([feature_vector_dict[p][q]*normal[q] for q in gradient_undeath_index]) for p in samples_index}
+
+        loss_at_point = -log_sigmoid(*[normal_clness[p] for p in knn_list])-log_sigmoid(*[sample_clness[p] for p in samples_index])
+        norm_diff_along = {q: np.abs(normal[q]+epsilon)-np.abs(normal[q]) for q in gradient_undeath_index}
+
+        loss_perturbed_along = {q:
+            -log_sigmoid(*[normal_clness[p]+epsilon*constant*feature_vector_dict[p][q] for p in knn_list]) \
+            -log_sigmoid(*[sample_clness[p]-epsilon*constant*feature_vector_dict[p][q] for p in samples_index]) \
+            +Lambda*norm_diff_along[q] for q in gradient_undeath_index
+        }
+
+        for q in gradient_undeath_index:
+            grads["normal"][q] = (1/epsilon)*(loss_perturbed_along[q]-loss_at_point)
+
+        if update:
+            optimizer.update(params, grads)

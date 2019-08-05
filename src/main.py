@@ -12,7 +12,6 @@ from scripts.inverted_index import InvertedIndex
 from scripts.learning.classifier import ClassificationTree
     
 if __name__ == '__main__':
-    sys.setrecursionlimit(4100000)
     path, output_file = sys.argv[1], sys.argv[2]
     train_file = "data/" + path + "/train.txt"
     index_file = "data/" + path + "/index.json"
@@ -43,7 +42,7 @@ if __name__ == '__main__':
             settings.DEBUG
         )
 
-    with Pool(processes=settings.Threads) as pool:
+    with Pool() as pool:
         pool.map(job, range(settings.NumOfTrees))
 
     # split `test_data_set` to `sample_list` and `label_vector_list`
