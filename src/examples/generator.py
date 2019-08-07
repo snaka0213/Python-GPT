@@ -35,8 +35,8 @@ class ExampleGenerator(object):
                 f.write("{} {}\n".format(labels, features))
 
 if __name__ == '__main__':
-    e = ExampleGenerator(M=10, N=100)
+    e = ExampleGenerator(M=100, N=1000)
     e.file_write("train.txt")
 
-    e = ExampleGenerator(M=10, N=50)
+    e = ExampleGenerator(M=100, N=100)
     e.file_write("test.txt")

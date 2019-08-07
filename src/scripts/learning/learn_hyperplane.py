@@ -72,29 +72,34 @@ class LearnHyperPlane(object):
         params = {"normal": self.normal}
         optimizer = AdaGrad(learning_rate=learning_rate)
 
+        print("### Data size: {} ###".format(len(feature_vector_dict)))
+
+        checker = random.choice(list(feature_vector_dict.keys()))
+        samples_for_checker = random.sample(feature_vector_dict.keys(), sample_size)
+        start = time.time()
+        self.learn_in_single(checker, samples_for_checker, params, optimizer, update=False)
+        total = time.time() - start
+        print("Estimated time in 1-epoch: {:.1f} sec.".format(total*len(feature_vector_dict)))
+
         for epoch in range(Epoch):
-            print("Epoch: {}, Data Size: {}".format(epoch, len(feature_vector_dict)))
-            self.learn_in_epoch(params, optimizer)
+            # make negative sampleling point
+            samples_index = random.sample(feature_vector_dict.keys(), sample_size)
+
+            self.learn_in_epoch(samples_index, params, optimizer)
+            print("Epoch: {} -> Done.".format(epoch))
 
     # an epoch
-    def learn_in_epoch(self, params, optimizer):
+    def learn_in_epoch(self, samples_index, params, optimizer):
         M = self.M
         knn = self._knn
         inverted_index = self._inverted_index
         feature_vector_dict = self._feature_vector_dict
         shuffled_keys_list = random.sample(feature_vector_dict.keys(), len(feature_vector_dict))
 
-        checker = random.choice(shuffled_keys_list)
-        start = time.time()
-        self.learn_in_single(checker, params, optimizer, update=False)
-        total = time.time() - start
-        print("Estimated time in 1-epoch: {:.1f} sec.".format(total*len(shuffled_keys_list)))
-
         for i in shuffled_keys_list:
-            self.learn_in_single(i, params, optimizer)
+            self.learn_in_single(i, samples_index, params, optimizer)
 
-
-    def learn_in_single(self, i, params, optimizer, update=True):
+    def learn_in_single(self, i, samples_index, params, optimizer, update=True):
         M = self.M
         knn = self._knn
         inverted_index = self._inverted_index
@@ -104,9 +109,6 @@ class LearnHyperPlane(object):
         knn_list = knn.get_index(feature_vector_dict[i], list(set(inverted_index.get(i))&set(feature_vector_dict.keys())))
         normal = params["normal"]
         grads = {"normal": np.zeros(M)}
-
-        # make negative sampleling point
-        samples_index = random.sample(feature_vector_dict.keys(), sample_size)
 
         # make sparse matrix
         tmp_list = [feature_vector_dict[i]]

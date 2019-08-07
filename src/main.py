@@ -42,7 +42,7 @@ if __name__ == '__main__':
             settings.DEBUG
         )
 
-    with Pool() as pool:
+    with Pool(processes=settings.Threads) as pool:
         pool.map(job, range(settings.NumOfTrees))
 
     # split `test_data_set` to `sample_list` and `label_vector_list`
