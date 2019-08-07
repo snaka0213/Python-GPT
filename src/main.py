@@ -12,7 +12,6 @@ from scripts.inverted_index import InvertedIndex
 from scripts.learning.classifier import ClassificationTree
     
 if __name__ == '__main__':
-    sys.setrecursionlimit(4100000)
     path, output_file = sys.argv[1], sys.argv[2]
     train_file = "data/" + path + "/train.txt"
     index_file = "data/" + path + "/index.json"

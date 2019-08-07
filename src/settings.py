@@ -31,9 +31,6 @@ Epsilon = 1e-8
 # the number of epochs in `LearnHyperPlane`
 Epoch = 10
 
-# the times of batch learning in `LearnHyperPlane`
-BatchTime = 10
-
 # the sample size in `LearnHyperPlane`
 SampleSize = 10 # <= MaxInLeaf
 
