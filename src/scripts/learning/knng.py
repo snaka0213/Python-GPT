@@ -1,28 +1,57 @@
 #!/user/bin/env python3
+import copy
 import heapq
+import random
 import numpy as np
 
 from .graph import OrientedGraph
 
-# We assume that `data_set` is a dictionary such that {index: label_vector}
-class KNN(object):
-    def __init__(self, L: int, k: int, data_set: dict):
-        self.L = L
-        self.k = k
-        self._data_set = data_set
+'''
+__Assume__
+* Given `data_set`, dict object {index: data}
+    `data` is dict object, whose keys are:
+    *  'label' : `label_vector`, list object subset in [0,...,L-1]
+    * 'feature': `feature_vector`, dict object {coordinate index: value}
+'''
 
-    # get list of k-nearest neighbors' index in `index_list`
-    # order: <= N*logN
-    def get_index(self, query: np.ndarray, index_list: list) -> list:
+class KNNG(object):
+    def __init__(self, *, k: int, L: int, data_set: dict, inverted_index):
+        self.k = k
+        self.L = L
+        self._data_set = data_set
+        self._inverted_index = inverted_index
+
+    def get_graph(self) -> OrientedGraph:
         k = self.k
         data_set = self._data_set
+        inverted_index = self._inverted_index
 
-        def sort_key(i) -> np.float64:
-            n = self._label_norm(data_set[i])
-            return (query @ data_set[i].T)/n if n != 0 else 0
+        G = OrientedGraph(nodes=list(data_set.keys()))
+        for i in G.nodes:
+            candidate_list = [j for j in inverted_index.get(i) if j in data_set.keys()]
+            N = heapq.nlargest(k, candidate_list, self._sort_key(i))
 
-        knn_list = heapq.nlargest(k, index_list, sort_key)
-        return knn_list
+            # make to be `len(N) = k` version
+            if len(N) < k:
+                temp = copy.copy(list(data_set.keys()))
+                for x in N:
+                    temp.remove(x)
+                else:
+                    complement = random.sample(temp, k-len(N))
+                    N.extend(complement)
 
-    def _label_norm(self, label_vector: np.ndarray):
-        return np.sum(label_vector)
+            for j in N:
+                G.add_edge(j, i)
+
+        return G
+
+    def _sort_key(self, i: int):
+        L = self.L
+
+        def _func(j: int) -> float:
+            label_i = self._data_set[i]['label']
+            label_j = self._data_set[j]['label']
+            cap = set(label_i) & set(label_j)
+            return len(cap)/(len(label_i)*len(label_j))
+
+        return _func

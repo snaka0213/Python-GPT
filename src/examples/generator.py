@@ -17,7 +17,7 @@ class ExampleGenerator(object):
                     random_vector[q] = random.uniform(1.0, 2.0)
                 else:
                     random_vector[q] = random.uniform(-2.0, -1.0)
-            
+
             self.data_set[p] = {"features": random_vector}
 
         for p in range(N):
@@ -35,8 +35,8 @@ class ExampleGenerator(object):
                 f.write("{} {}\n".format(labels, features))
 
 if __name__ == '__main__':
-    e = ExampleGenerator(M=100, N=1000)
+    e = ExampleGenerator(M=10, N=100)
     e.file_write("train.txt")
 
-    e = ExampleGenerator(M=100, N=100)
+    e = ExampleGenerator(M=10, N=10)
     e.file_write("test.txt")

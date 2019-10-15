@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-### Debug ###
-DEBUG = True
-
 ### validation ###
 # k of `precision@k`
 KOfPrecision = 5
 
 ### classifier ###
 # max number of leafs in `ClassificationTree`
-MaxInLeaf = 10 # >= BatchSize
+MaxInLeaf = 10
 
 # the number of `ClassificationTree`
 NumOfTrees = 50
@@ -21,9 +18,9 @@ ThresholdParameter = 50
 # k in `KNNG`
 NumOfNeighbors = 10
 
-### learn_hyperplane ###
+### LearnHyperPlane ###
 # the number of threads
-Threads = 4
+Threads = 8
 
 # the epsilon in derivative
 Epsilon = 1e-8
@@ -31,7 +28,7 @@ Epsilon = 1e-8
 # the number of epochs in `LearnHyperPlane`
 Epoch = 10
 
-# the sample size in `LearnHyperPlane`
+# the random sampling size in `LearnHyperPlane`
 SampleSize = 10 # <= MaxInLeaf
 
 # the regularization parameter in `LearnHyperPlane`
@@ -39,4 +36,3 @@ Lambda = 4
 
 # the initial learning rate in `AdaGrad`
 InitialLearningRate = 0.1
-
