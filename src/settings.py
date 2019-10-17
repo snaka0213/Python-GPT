@@ -20,7 +20,7 @@ NumOfNeighbors = 10 # <= MaxInLeaf
 
 ### LearnHyperPlane ###
 # the number of threads
-Threads = 1
+Threads = 8
 
 # the epsilon in derivative
 Epsilon = 1e-8

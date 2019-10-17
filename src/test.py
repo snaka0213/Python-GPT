@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # train_data read
     train = Train()
     train.read(train_file)
-    
+
     # split `data_set` to `sample_list` and `label_list`
     reader = FileReader()
     data_set, N = reader.read(predict_file), reader.N

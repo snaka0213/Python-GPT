@@ -140,12 +140,16 @@ class LearnHyperPlane(object):
 
         self.learn_in_single(checker, loss, optimizer, update=False)
         total_time = time.time() - start_time
-        print("Estimated time in 1-epoch: {:.1f} sec.".format(total_time*self.N))
+        if debug:
+            print("Estimated time in 1-epoch: {:.1f} sec.".format(total_time*self.N))
 
         # online learning
         for epoch in range(Epoch):
-            self.learn_in_epoch(loss, optimizer, debug)
-            print("Epoch: {} -> Done.".format(epoch))
+            self.learn_in_epoch(loss, optimizer)
+            if debug:
+                print("Epoch: {} -> Done.".format(epoch))
+        else:
+            print("{} epochs learning -> Done.".format(Epoch))
 
     # an epoch
     def learn_in_epoch(self, loss, optimizer, debug=False):
