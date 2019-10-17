@@ -16,11 +16,11 @@ NumOfTrees = 50
 ThresholdParameter = 50
 
 # k in `KNNG`
-NumOfNeighbors = 10
+NumOfNeighbors = 10 # <= MaxInLeaf
 
 ### LearnHyperPlane ###
 # the number of threads
-Threads = 8
+Threads = 1
 
 # the epsilon in derivative
 Epsilon = 1e-8

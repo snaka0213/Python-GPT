@@ -2,9 +2,12 @@
 import time
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 import settings
 from .knng import KNNG
+from .optimizer.sgd import MomentumSGD
+from .optimizer.adam import Adam
 from .optimizer.adagrad import AdaGrad
 
 '''
@@ -17,7 +20,10 @@ __Assume__
     *  'label' : `label_vector`, list object subset in [0,...,L-1]
     * 'feature': `feature_vector`, dict object {coordinate index: value}
 '''
+# set optimizer
+opt = AdaGrad
 
+# set hyperparameters
 Epoch   = settings.Epoch
 Lambda  = settings.Lambda
 Threads = settings.Threads
@@ -27,11 +33,11 @@ learning_rate = settings.InitialLearningRate
 
 # sigmoid
 def sigma(z):
-    return 1/(1+np.exp(-z)) if -z < 700 else 1
+    return 1/(1+np.exp(-z))
 
 # log of sigmoid
 def log_sigmoid(z):
-    return np.log(sigma(z))
+    return np.log(sigma(z)) if -z < 700 else z
 
 # if sample in the same posision as `normal`: +1; else: -1
 def two_valued_classifier(sample: dict, normal: dict) -> int:
@@ -49,8 +55,7 @@ def dict_to_vec(m: int, d: dict):
     return vector
 
 def vec_to_dict(m: int, v: np.ndarray):
-    d = {x: v[x] for x in range(m) if v[x] != 0}
-    return d
+    return {x: v[x] for x in range(m) if v[x] != 0}
 
 class Loss(object):
     def __init__(self, epsilon=1e-8, Lambda=4):
@@ -61,48 +66,51 @@ class Loss(object):
         data_set: dict, sampling_index: list, w: dict) -> np.float:
 
         N_i = G.edges[i]
+        x_i = data_set[i]['feature']
         val = 0
         for j in N_i:
-            x = data_set[j]['feature']
-            e = two_valued_classifier(x, w)
-            z = sum(x[coordinate]*w[coordinate] for coordinate in x.keys() & w.keys())
-            val -= log_sigmoid(e*z)
+            x_j = data_set[j]['feature']
+            e_i = two_valued_classifier(x_i, w)
+            z_j = e_i*sum(x_j[coordinate]*w[coordinate] for coordinate in x_j.keys() & w.keys())
+            val -= log_sigmoid(z_j)
 
         for j in sampling_index:
-            x = data_set[j]['feature']
-            e = two_valued_classifier(x, w)
-            z = sum(x[coordinate]*w[coordinate] for coordinate in x.keys() & w.keys())
-            val -= log_sigmoid(-e*z)
+            x_j = data_set[j]['feature']
+            e_i = two_valued_classifier(x_i, w)
+            z_j = e_i*sum(x_j[coordinate]*w[coordinate] for coordinate in x_j.keys() & w.keys())
+            val -= log_sigmoid(-z_j)
 
         return val
 
     def gradient(self, *, i: int, M: int, G: KNNG,
-        data_set: dict, sampling_index: list, w: dict) -> np.ndarray:
+        data_set: dict, sampling_index: list, w: dict) -> dict:
 
         N_i = G.edges[i]
+        x_i = data_set[i]['feature']
         grad = {}
         for j in N_i:
-            x = data_set[j]['feature']
-            e = two_valued_classifier(x, w)
-            z = e*sum(x[coordinate]*w[coordinate] for coordinate in x.keys() & w.keys())
+            x_j = data_set[j]['feature']
+            e_i = two_valued_classifier(x_i, w)
+            z_j = e_i*sum(x_j[coordinate]*w[coordinate] for coordinate in x_j.keys() & w.keys())
+            s_j = sigma(-z_j) if z_j < 700 else 1
 
-            for coordinate in x.keys():
+            for coordinate in x_j.keys():
                 if coordinate not in grad.keys():
-                    grad[coordinate] = -sigma(-z)*x[coordinate]
+                    grad[coordinate] = -e_i*s_j*x_j[coordinate]
                 else:
-                    grad[coordinate] += -sigma(-z)*x[coordinate]
-
+                    grad[coordinate] += -e_i*s_j*x_j[coordinate]
 
         for j in sampling_index:
-            x = data_set[j]['feature']
-            e = two_valued_classifier(x, w)
-            z = e*sum(x[coordinate]*w[coordinate] for coordinate in x.keys() & w.keys())
+            x_j = data_set[j]['feature']
+            e_i = two_valued_classifier(x_i, w)
+            z_j = e_i*sum(x_j[coordinate]*w[coordinate] for coordinate in x_j.keys() & w.keys())
+            s_j = sigma(z_j) if -z_j < 700 else 1
 
-            for coordinate in x.keys():
+            for coordinate in x_j.keys():
                 if coordinate not in grad.keys():
-                    grad[coordinate] = sigma(z)*x[coordinate]
+                    grad[coordinate] = e_i*s_j*x_j[coordinate]
                 else:
-                    grad[coordinate] += sigma(z)*x[coordinate]
+                    grad[coordinate] += e_i*s_j*x_j[coordinate]
 
         return grad
 
@@ -121,29 +129,31 @@ class LearnHyperPlane(object):
         for coordinate in random_vector.keys():
             self.normal[coordinate] = random_vector[coordinate]
 
-    def learn(self):
-        optimizer = AdaGrad(learning_rate=learning_rate)
+    def learn(self, debug=False):
+        loss = Loss(epsilon, Lambda)
+        optimizer = opt(learning_rate=learning_rate)
         print("### Data size: {} ###".format(self.N))
 
         # estimate time
         checker = random.choice(list(self._data_set.keys()))
-        start = time.time()
-        self.learn_in_single(checker, optimizer, update=False)
-        total = time.time() - start
-        print("Estimated time in 1-epoch: {:.1f} sec.".format(total*self.N))
+        start_time = time.time()
+
+        self.learn_in_single(checker, loss, optimizer, update=False)
+        total_time = time.time() - start_time
+        print("Estimated time in 1-epoch: {:.1f} sec.".format(total_time*self.N))
 
         # online learning
         for epoch in range(Epoch):
-            self.learn_in_epoch(optimizer)
+            self.learn_in_epoch(loss, optimizer, debug)
             print("Epoch: {} -> Done.".format(epoch))
 
     # an epoch
-    def learn_in_epoch(self, optimizer):
+    def learn_in_epoch(self, loss, optimizer, debug=False):
         shuffled_keys_list = random.sample(self._data_set.keys(), self.N)
         for i in shuffled_keys_list:
-            self.normal = self.learn_in_single(i, optimizer)
+            val = self.learn_in_single(i, loss, optimizer, update=True)
 
-    def learn_in_single(self, i: int, optimizer, update=True) -> dict:
+    def learn_in_single(self, i: int, loss, optimizer, update=True):
         N = self.N
         M = self.M
         G = self.G
@@ -151,20 +161,19 @@ class LearnHyperPlane(object):
         data_set = self._data_set
         S = random.sample(data_set.keys(), k)
 
-        loss = Loss(epsilon, Lambda)
-        original_grad = loss.gradient(
+        grad_vec = loss.gradient(
             i=i, M=M, G=G, data_set=data_set, sampling_index=S, w=self.normal
         )
         for key in self.normal.keys():
-            if original_grad.get(key) is not None:
-                original_grad[key] += loss.Lambda * np.sign(self.normal[key])
+            if key not in grad_vec.keys():
+                grad_vec[key] = loss.Lambda * np.sign(self.normal[key])
             else:
-                original_grad[key] = loss.Lambda * np.sign(self.normal[key])
+                grad_vec[key] += loss.Lambda * np.sign(self.normal[key])
 
         params = {'normal': dict_to_vec(M, self.normal)}
-        grads  = {'normal': dict_to_vec(M, original_grad)}
+        grads  = {'normal': dict_to_vec(M, grad_vec)}
 
         if update:
             optimizer.update(params, grads)
 
-        return vec_to_dict(M, params['normal'])
+        self.normal = vec_to_dict(M, params['normal'])

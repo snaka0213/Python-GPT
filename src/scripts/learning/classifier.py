@@ -71,7 +71,7 @@ class ClassificationTree(object):
     def _split_node(self, data_set: dict, inverted_index) -> tuple:
         G = KNNG(k=self.k, L=self.L, data_set=data_set, inverted_index=inverted_index)
         H = LearnHyperPlane(M=self.M, G=G.get_graph(), data_set=data_set)
-        H.learn()
+        H.learn(debug=True)
 
         left, right = {}, {}
         for key in data_set.keys():

@@ -9,9 +9,8 @@ class AdaGrad(object):
         self.decay = decay
 
     def update(self, params, grads):
-        for key in params.keys():
+        for key in grads.keys():
             self.decay += np.sum(grads[key]*grads[key])
         self.learning_rate = self.init_learning_rate / np.sqrt(self.decay)
-        for key in params.keys():
+        for key in params.keys() & grads.keys():
             params[key] += -self.learning_rate * grads[key]
-            

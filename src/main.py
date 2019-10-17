@@ -52,8 +52,12 @@ if __name__ == '__main__':
         file_name = tree_file_name(i)
         tree.write(file_name)
 
-    with Pool(processes=settings.Threads) as pool:
-        pool.map(job, range(settings.NumOfTrees))
+    if settings.Threads != 1:
+        with Pool(processes=settings.Threads) as pool:
+            pool.map(job, range(settings.NumOfTrees))
+    else:
+        for i in range(settings.NumOfTrees):
+            job(i)
 
     # split `data_set` to `sample_list` and `label_list`
     reader = FileReader()
