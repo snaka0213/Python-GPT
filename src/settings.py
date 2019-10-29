@@ -11,9 +11,9 @@ MaxInLeaf = 10
 # the number of `ClassificationTree`
 NumOfTrees = 50
 
-### knng ###
+### KNNG ###
 # threshold parameter in Approximate version of `KNNG`
-ThresholdParameter = 50
+ThresholdParameter = -1
 
 # k in `KNNG`
 NumOfNeighbors = 10 # <= MaxInLeaf

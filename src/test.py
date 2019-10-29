@@ -38,6 +38,7 @@ if __name__ == '__main__':
             L=train.L,
             M=train.M,
             k=settings.NumOfNeighbors,
+            TH=settings.ThresholdParameter,
             max_in_leaf=settings.MaxInLeaf
         ) for i in range(T)
     ]

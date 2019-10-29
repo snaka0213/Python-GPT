@@ -62,16 +62,16 @@ class ClassificationTree(object):
 
     # make tree from data_set
     def make_tree(self, data_set: dict, inverted_index):
-        # initialize normal vector
-        random_index = random.choice(list(data_set.keys()))
-        init_normal = data_set[random_index]['feature'] # dict object
-        self.root = self._grow_tree(data_set, inverted_index, init_normal)
+        self.root = self._grow_tree(data_set, inverted_index)
 
-    def _grow_tree(self, data_set: dict, inverted_index, init_normal) -> Node:
+    def _grow_tree(self, data_set: dict, inverted_index) -> Node:
         if len(data_set) <= self.MaxInLeaf:
             label = self._empirical_label_distribution(data_set)
             return Node(label=label)
         else:
+            # initialize normal vector
+            random_index = random.choice(list(data_set.keys()))
+            init_normal = data_set[random_index]['feature'] # dict object
             return Node(*self._split_node(data_set, inverted_index, init_normal))
 
     def _split_node(self, data_set: dict, inverted_index, init_normal) -> tuple:
@@ -86,8 +86,8 @@ class ClassificationTree(object):
             else:
                 right[key] = data_set[key]
 
-        left_tree = self._grow_tree(left, inverted_index, H.normal)
-        right_tree = self._grow_tree(right, inverted_index, H.normal)
+        left_tree = self._grow_tree(left, inverted_index)
+        right_tree = self._grow_tree(right, inverted_index)
 
         return (left_tree, right_tree, H.normal)
 
