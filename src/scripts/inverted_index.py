@@ -1,6 +1,4 @@
 #!/user/bin/env python3
-import json
-import heapq
 import numpy as np
 
 '''
@@ -13,84 +11,53 @@ __Terminology__
 * L: int object called `label space dimension`
 * label: list of int object in range(L) := {0,...,L-1}
 
-* inverted_index: Let N := len(data_set) and consider the map
-    f: range(N) -> P(range(L)), i -> data_set[i]['label'].
-
-    * For a given label l in range(L), we define fiber[l],
-        a subset of range(N), as fiber[l] := {i for in range(N) if l in f(i)}.
-    * For given query vector q in P(range(L)), we define as follows:
-        inverted_index[q] := sum_{l in q} fiber[l].
-    * For given query_index i in range(N), we define
-        inverted_index[i] := inverted_index[f(i)] \ {i}.
-
-* TH := ThresholdParameter: int object which make
-    len(fiber[l]) < TH for each l in range(L)
-* If TH = -1, then make inverted index by brute force.
-
+* inverted_index: Let N := len(data_set).
+* For a given label l in range(L), we define Inv[l] a subset of range(N):
+    Inv[l] := {i for in range(N) if l in data_set[i]['label']}.
 '''
 
 class InvertedIndex(object):
-    def __init__(self, *, L: int, data_set: dict, TH: int):
+    def __init__(self, *, L: int):
         self.L = L # label space dimension
-        self.TH = TH # the ThresholdParameter
-        self._data_set = data_set # the original data_set
-        self._fiber_list = [] # [fiber[l] for l in range(L)]
-        self._index_dict = {} # {index: inverted_index[index]}
-
-    def is_approximate(self) -> bool:
-        return self.TH != -1
+        self._inverted_index = [] # [Inv[l] for l in range(L)]
 
     def _hasattr(self, label, l) -> bool:
         return l in label
 
     # order: L*N
-    def make_index(self):
+    def make_index(self, data_set: dict):
         L = self.L
-        data_set = self._data_set
-        self._fiber_list = [self._fiber(l) for l in range(L)]
+        self._inverted_index = [self._fiber(data_set, l) for l in range(L)]
 
-        for key in data_set.keys():
-            self._index_dict[key] = self._inverted_index(key)
-
-    # returns inverted_index[key]
-    def get(self, key) -> list:
-        return self._index_dict[key]
+    # returns Inv[l]
+    def get(self, l) -> list:
+        return self._inverted_index[l]
 
     # order: N
-    def _fiber(self, l) -> set:
-        data_set = self._data_set
-        fiber = {key for key in data_set.keys() if self._hasattr(data_set[key]['label'], l)}
+    def _fiber(self, data_set: dict, l: int) -> list:
+        fiber = [key for key in data_set.keys() if self._hasattr(data_set[key]['label'], l)]
         return fiber
 
-    def _inverted_index(self, query_index: int) -> list:
-        TH = self.TH
-        fiber_list = self._fiber_list
-        original_label = self._data_set[query_index]['label']
-
-        index_set = set()
-        for l in original_label:
-            if not(self.is_approximate() and len(fiber_list[l]) >= TH):
-                index_set = index_set | fiber_list[l]
-
-        index_set.discard(query_index)
-        return list(index_set)
-
     ### File Writer ###
-    # save inverted_index as a new json file, list of
-    # {index: inverted_index[index] (: list object)}
+    # save inverted_index as a new .txt file
+    # 1 line per label in range(L): idx1,idx2,...,idxk
     def write(self, file_name: str):
+        L = self.L
         with open(file_name, 'w') as f:
-            json.dump(self._index_dict, f)
+            for l in range(L):
+                line = ','.join(str(i) for i in self.get(l))
+                f.write(line+'\n')
 
         print("Successfully saved inverted index file: {}".format(file_name))
 
     ### File Reader ###
-    # save inverted_index in self from a json file
-    # Notice: key in json is ALWAYS strings
+    # save inverted_index in self from a .txt file
     def read(self, file_name: str):
+        L = self.L
         with open(file_name, 'r') as f:
-            encoded_dict = json.load(f)
-            for key in encoded_dict.keys():
-                self._index_dict[int(key)] = encoded_dict[key]
+            line = f.readline()
+            while line:
+                self._inverted_index.append([int(x) for x in line.split(',')])
+                line = f.readline()
 
         print("Successfully loaded inverted index file: {}".format(file_name))

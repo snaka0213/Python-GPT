@@ -15,7 +15,7 @@ from scripts.learning.classifier import ClassificationTree
 if __name__ == '__main__':
     path = input("Data set file name: ")
     train_file = "data/" + path + "/train.txt"
-    index_file = "data/" + path + "/index.json"
+    index_file = "data/" + path + "/index.txt"
     predict_file = "data/" + path + "/test.txt"
     trees_dir = "data/" + path + "/trees/"
 
@@ -35,17 +35,18 @@ if __name__ == '__main__':
     # train_data -> inverted_index
     if os.path.exists(index_file):
         print("Already inverted index file exists: {}".format(index_file))
-        inverted_index = InvertedIndex(L=train.L, data_set={}, TH=settings.ThresholdParameter)
+        inverted_index = InvertedIndex(L=train.L)
         inverted_index.read(index_file)
 
     else:
-        inverted_index = train.make_index(TH=settings.ThresholdParameter)
+        inverted_index = train.make_index()
         inverted_index.write(index_file)
 
     # train_data -> ClassificationTree
     def job(i: int):
         tree = train.make_tree(
             k=settings.NumOfNeighbors,
+            TH=settings.ThresholdParameter,
             max_in_leaf=settings.MaxInLeaf,
             inverted_index=inverted_index
         )
@@ -72,6 +73,7 @@ if __name__ == '__main__':
             L=train.L,
             M=train.M,
             k=settings.NumOfNeighbors,
+            TH=settings.ThresholdParameter,
             max_in_leaf=settings.MaxInLeaf
         ) for i in range(settings.NumOfTrees)
     ]

@@ -115,19 +115,12 @@ class Loss(object):
         return grad
 
 class LearnHyperPlane(object):
-    def __init__(self, *, M: int, G: KNNG, data_set: dict):
+    def __init__(self, *, M: int, G: KNNG, data_set: dict, init_normal: dict):
         self.N = len(data_set) # the size of data_set
         self.M = M # feature vector space dimension
         self.G = G # k-nearest neighbor graph
         self._data_set = data_set # dictionary object, {index: data}
-        self.normal = {} # dictionary object, {coordinate: value}
-
-        # initialize normal vector
-        random_index = random.choice(list(data_set.keys()))
-        random_vector = data_set[random_index]['feature'] # dict object
-
-        for coordinate in random_vector.keys():
-            self.normal[coordinate] = random_vector[coordinate]
+        self.normal = init_normal # dictionary object, {coordinate: value}
 
     def learn(self, debug=False):
         loss = Loss(epsilon, Lambda)

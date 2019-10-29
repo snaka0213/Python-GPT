@@ -19,9 +19,6 @@ if __name__ == '__main__':
     predict_file = "data/" + path + "/test.txt"
     trees_dir = "data/" + path + "/trees/"
 
-    def tree_file_name(i: int):
-        return "{}tree_{}.json".format(trees_dir, i)
-
     # train_data read
     train = Train()
     train.read(train_file)
@@ -34,16 +31,18 @@ if __name__ == '__main__':
     label_list = [data_set[key]['label'] for key in data_set]
 
     # predict
+    trees_file_list = os.listdir(trees_dir)
+    T = len(trees_file_list)
     trees = [
         ClassificationTree(
             L=train.L,
             M=train.M,
             k=settings.NumOfNeighbors,
             max_in_leaf=settings.MaxInLeaf
-        ) for i in range(settings.NumOfTrees)
+        ) for i in range(T)
     ]
-    for i in range(settings.NumOfTrees):
-        trees[i].read(tree_file_name(i))
+    for i in range(T):
+        trees[i].read(trees_dir+trees_file_list[i])
 
     k = settings.KOfPrecision
     predict = Predict()

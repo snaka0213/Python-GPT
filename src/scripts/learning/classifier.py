@@ -12,6 +12,10 @@ __Assume__
     `data` is dict object, whose keys are:
     *  'label' : `label_vector`, list object subset in [0,...,L-1]
     * 'feature': `feature_vector`, dict object {coordinate index: value}
+
+* TH := ThresholdParameter: int object which make
+    len(Inv[l]) < TH for each l in range(L)
+* If TH = -1, then make KNNG by brute force.
 '''
 
 class Encoder(json.JSONEncoder):
@@ -48,29 +52,31 @@ class Node(object):
 
 
 class ClassificationTree(object):
-    def __init__(self, *, L: int, M: int, k: int, max_in_leaf: int):
+    def __init__(self, *, L: int, M: int, k: int, TH: int, max_in_leaf: int):
         self.L = L # label vector space dimension
         self.M = M # feature vector space dimension
         self.k = k # the number of each kNN
+        self.TH = TH # the ThresholdParameter in making KNNG
         self.MaxInLeaf = max_in_leaf # max size of leafs in output tree
         self.root = Node() # root node
 
     # make tree from data_set
     def make_tree(self, data_set: dict, inverted_index):
+        # initialize normal vector
         random_index = random.choice(list(data_set.keys()))
-        init_normal = data_set[random_index]['feature']
-        self.root = self._grow_tree(data_set, inverted_index)
+        init_normal = data_set[random_index]['feature'] # dict object
+        self.root = self._grow_tree(data_set, inverted_index, init_normal)
 
-    def _grow_tree(self, data_set: dict, inverted_index) -> Node:
+    def _grow_tree(self, data_set: dict, inverted_index, init_normal) -> Node:
         if len(data_set) <= self.MaxInLeaf:
             label = self._empirical_label_distribution(data_set)
             return Node(label=label)
         else:
-            return Node(*self._split_node(data_set, inverted_index))
+            return Node(*self._split_node(data_set, inverted_index, init_normal))
 
-    def _split_node(self, data_set: dict, inverted_index) -> tuple:
-        G = KNNG(k=self.k, L=self.L, data_set=data_set, inverted_index=inverted_index)
-        H = LearnHyperPlane(M=self.M, G=G.get_graph(), data_set=data_set)
+    def _split_node(self, data_set: dict, inverted_index, init_normal) -> tuple:
+        G = KNNG(L=self.L, k=self.k, TH=self.TH, data_set=data_set, inverted_index=inverted_index)
+        H = LearnHyperPlane(M=self.M, G=G.get_graph(), data_set=data_set, init_normal=init_normal)
         H.learn(debug=False)
 
         left, right = {}, {}
@@ -80,8 +86,8 @@ class ClassificationTree(object):
             else:
                 right[key] = data_set[key]
 
-        left_tree = self._grow_tree(left, inverted_index)
-        right_tree = self._grow_tree(right, inverted_index)
+        left_tree = self._grow_tree(left, inverted_index, H.normal)
+        right_tree = self._grow_tree(right, inverted_index, H.normal)
 
         return (left_tree, right_tree, H.normal)
 
